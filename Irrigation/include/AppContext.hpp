@@ -4,6 +4,7 @@
 #include "UVSensor.hpp"
 #include "Pump.hpp"
 #include "Wifi.hpp"
+#include "PowerModule.hpp"
 #include "SystemConfig.hpp"
 
 class TaskScheduler;
@@ -16,6 +17,7 @@ struct AppContext {
   UVSensor           uv;
   Pump               pump;
   WifiModule         wifi;
+  PowerModule        power;
   ConfigManager      config;
   TaskScheduler*     scheduler;
 };
