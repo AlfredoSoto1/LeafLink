@@ -2,6 +2,7 @@
 
 #include "SoilMoistureSensor.hpp"
 #include "UVSensor.hpp"
+#include "WaterLevelSensor.hpp"
 #include "Pump.hpp"
 #include "Wifi.hpp"
 #include "PowerModule.hpp"
@@ -15,6 +16,7 @@ class TaskScheduler;
 struct AppContext {
   SoilMoistureSensor moisture;
   UVSensor           uv;
+  WaterLevelSensor   water;
   Pump               pump;
   WifiModule         wifi;
   PowerModule        power;

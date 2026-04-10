@@ -190,11 +190,17 @@ bool WifiModule::receive_ipd(char *buf, size_t max_len, uint32_t timeout_ms) {
 bool WifiModule::parse_config(const char *data, SystemConfig &out) {
   if (strncmp(data, "CFG:", 4) != 0) return false;
 
-  // Float fields are sent scaled by 100 to avoid float sscanf on embedded.
-  uint16_t threshold_x100 = 0;
-  uint16_t uv_alert_x100  = 0;
+  uint16_t threshold_x100  = 0;
+  uint16_t uv_alert_x100   = 0;
+  uint16_t pwr_vmax_x100   = 0;
+  uint16_t pwr_vmin_x100   = 0;
+  uint16_t pwr_div_x1000   = 0;
 
-  const int n = sscanf(data + 4, "%hu,%hu,%hu,%u,%u,%hu,%u,%u,%u",
+  const int n = sscanf(data + 4,
+    "%hu,%hu,%hu,%u,%u,"    // moisture (5)
+    "%hu,%u,%u,%u,"         // uv + pump (4)
+    "%hu,%hu,%u,%u,%u,"     // water level (5)
+    "%hu,%hu,%hu,%u",       // power (4)
     &out.moisture_dry_cal,
     &out.moisture_wet_cal,
     &threshold_x100,
@@ -203,12 +209,25 @@ bool WifiModule::parse_config(const char *data, SystemConfig &out) {
     &uv_alert_x100,
     &out.uv_sample_count,
     &out.uv_warmup_ms,
-    &out.pump_run_duration_ms);
+    &out.pump_run_duration_ms,
+    &out.water_dry_cal,
+    &out.water_wet_cal,
+    &out.water_sample_count,
+    &out.water_warmup_ms,
+    &out.water_tank_oz,
+    &pwr_vmax_x100,
+    &pwr_vmin_x100,
+    &pwr_div_x1000,
+    &out.power_sample_count);
 
-  if (n != 9) return false;
+  if (n != 18) return false;
 
   out.moisture_threshold_pct = threshold_x100 / 100.0f;
   out.uv_alert_threshold     = uv_alert_x100  / 100.0f;
+  out.power_v_max            = pwr_vmax_x100  / 100.0f;
+  out.power_v_min            = pwr_vmin_x100  / 100.0f;
+  out.power_divider_ratio    = pwr_div_x1000  / 1000.0f;
   return true;
 }
+
 

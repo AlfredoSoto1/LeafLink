@@ -33,17 +33,31 @@ struct SystemConfig {
 
   // Pump
   uint32_t pump_run_duration_ms   = 5000;
+
+  // Water level sensor
+  uint16_t water_dry_cal          = 0;
+  uint16_t water_wet_cal          = 3500;
+  uint32_t water_sample_count     = 8;
+  uint32_t water_warmup_ms        = 100;
+  uint32_t water_tank_oz          = 128;  // total tank capacity in fluid ounces
+
+  // Power / battery monitor
+  float    power_v_max            = 4.2f;  // voltage at 100 %
+  float    power_v_min            = 3.0f;  // voltage at 0 %
+  float    power_divider_ratio    = 0.5f;  // R2 / (R1 + R2)
+  uint32_t power_sample_count     = 8;
 };
 
 // ---------------------------------------------------------------------------
 // ConfigManager — load / save SystemConfig to the last flash sector
 //
-// Wire format used when receiving config from master via Wi-Fi:
-//   CFG:<dry_cal>,<wet_cal>,<threshold*100>,<m_samples>,<m_warmup_ms>,
-//       <uv_alert*100>,<uv_samples>,<uv_warmup_ms>,<pump_ms>\r\n
+// Wire format used when receiving config from master via Wi-Fi (all values
+// are unsigned integers; floats are scaled by 100 to avoid float parsing):
 //
-// All values are unsigned integers. Floating-point fields are transmitted
-// scaled by 100 to avoid float parsing on the embedded side.
+//   CFG:<m_dry>,<m_wet>,<m_thresh*100>,<m_samples>,<m_warmup>,
+//       <uv_alert*100>,<uv_samples>,<uv_warmup>,<pump_ms>,
+//       <w_dry>,<w_wet>,<w_samples>,<w_warmup>,<w_tank_oz>,
+//       <pwr_vmax*100>,<pwr_vmin*100>,<pwr_div*1000>,<pwr_samples>\r\n
 // ---------------------------------------------------------------------------
 class ConfigManager {
 public:
