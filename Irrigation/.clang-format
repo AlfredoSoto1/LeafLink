@@ -4,6 +4,6 @@ Language: Cpp
 BasedOnStyle: Google
 ColumnLimit: 80
 
-IndentWidth: 4    # Set indentation width to 4 spaces
-TabWidth: 4       # Set tab width to 4 spaces
+IndentWidth: 2    # Set indentation width to 2 spaces
+TabWidth: 2       # Set tab width to 2 spaces
 UseTab: Never     # Ensures spaces are used instead of tabs
