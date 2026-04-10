@@ -1,22 +1,24 @@
 #include "TaskScheduler.hpp"
 
-void TaskScheduler::schedule(TaskFunc task) {
+bool TaskScheduler::schedule(TaskFunc task) {
   if (count >= MAX_TASKS) {
-    return;
+    return false;
   }
   queue[tail] = task;
   tail = (tail + 1) % MAX_TASKS;
   ++count;
+  return true;
+
 }
 
-void TaskScheduler::execute() {
+TaskScheduler::TaskFunc TaskScheduler::pop() {
   if (count == 0) {
-    return;
+    return nullptr;
   }
   TaskFunc task = queue[head];
   head = (head + 1) % MAX_TASKS;
   --count;
-  task();
+  return task;
 }
 
 void TaskScheduler::clear() {

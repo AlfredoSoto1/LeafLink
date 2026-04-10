@@ -1,9 +1,6 @@
+#include "Tasks.hpp"
 #include "TaskScheduler.hpp"
-#include "SoilMoistureSensor.hpp"
-#include "UVSensor.hpp"
-#include "Pump.hpp"
-#include "Wifi.hpp"
-#include "SystemConfig.hpp"
+#include "AppContext.hpp"
 #include "hardware/uart.h"
 #include <cstdio>
 
@@ -12,91 +9,102 @@ int main() {
   sleep_ms(2000);
 
   // -------------------------------------------------------------------------
-  // 1 — Create sensors, pump, wifi, and config manager
+  // 1 — Construct the application context with all components
   // -------------------------------------------------------------------------
-  SoilMoistureSensor moisture(16, 500, 30.0f);
-  UVSensor           uv(16, 100, 6.0f);
-  Pump               pump;
-  WifiModule         wifi(uart0);
-  ConfigManager      config;
+  TaskScheduler scheduler;
+
+  AppContext context = {
+    .moisture = SoilMoistureSensor(16, 500, 30.0f),
+    .uv       = UVSensor(16, 100, 6.0f),
+    .pump     = Pump(),
+    .wifi     = WifiModule(uart0),
+    .config   = ConfigManager(),
+    .scheduler = &scheduler
+  };
 
   // -------------------------------------------------------------------------
-  // 2 — Power on, calibrate, and initialize sensors
+  // 2 — Calibrate, and initialize sensors
   // -------------------------------------------------------------------------
-  moisture.calibrate(3000, 1500);
-  moisture.init();
-
-  uv.init();
-  pump.init();
+  context.uv.init();
+  context.pump.init();
+  context.moisture.init();
+  context.moisture.calibrate(3000, 1500);
 
   // -------------------------------------------------------------------------
   // 3 — Schedule task chain
   // -------------------------------------------------------------------------
-  TaskScheduler scheduler;
 
-  // Task A — check flash for saved config; if missing, fetch it from master.
-  scheduler.schedule([&]() {
-    if (config.load()) {
-      printf("[Config] Loaded from flash.\n");
+  // Initial tasks to read config and sensors immediately on boot.
+  context.scheduler->schedule(Tasks::load_config_from_flash);
+  context.scheduler->schedule(Tasks::read_sensors);
 
-      // Task B (fast path) — apply config immediately.
-      scheduler.schedule([&]() {
-        moisture.set_config(config.get());
-        uv.set_config(config.get());
-        pump.set_config(config.get());
-        printf("[Config] Applied to sensors.\n");
-      });
+  // // Task A — check flash for saved config; if missing, fetch it from master.
+  // context.scheduler.schedule([&]() {
+  //   if (context.config.load()) {
+  //     printf("[Config] Loaded from flash.\n");
 
-      return;
-    }
+  //     // Task B (fast path) — apply config immediately.
+  //     context.scheduler.schedule([&]() {
+  //       context.moisture.set_config(context.config.get());
+  //       context.uv.set_config(context.config.get());
+  //       context.pump.set_config(context.config.get());
+  //       printf("[Config] Applied to sensors.\n");
+  //     });
 
-    // No valid config — initialise Wi-Fi and request it from the master.
-    printf("[Config] Not found in flash. Connecting to master...\n");
+  //     return;
+  //   }
 
-    if (!wifi.init()) {
-      printf("[Wifi] Module init failed.\n");
-      return;
-    }
+  //   // No valid config — initialise Wi-Fi and request it from the master.
+  //   printf("[Config] Not found in flash. Connecting to master...\n");
 
-    wifi.power_on();
+  //   if (!context.wifi.init()) {
+  //     printf("[Wifi] Module init failed.\n");
+  //     return;
+  //   }
 
-    if (!wifi.connect(Defaults::WIFI_SSID, Defaults::WIFI_PASSWORD)) {
-      printf("[Wifi] Connect failed.\n");
-      return;
-    }
+  //   context.wifi.power_on();
 
-    SystemConfig received = {};
-    while (!wifi.request_config(Defaults::MASTER_HOST, Defaults::MASTER_PORT, received)) {
-      printf("[Config] Waiting for config from master...\n");
-      sleep_ms(2000);
-    }
+  //   if (!context.wifi.connect(Defaults::WIFI_SSID, Defaults::WIFI_PASSWORD)) {
+  //     printf("[Wifi] Connect failed.\n");
+  //     return;
+  //   }
 
-    printf("[Config] Received from master.\n");
+  //   SystemConfig received = {};
+  //   while (!context.wifi.request_config(Defaults::MASTER_HOST, Defaults::MASTER_PORT, received)) {
+  //     printf("[Config] Waiting for config from master...\n");
+  //     sleep_ms(2000);
+  //   }
 
-    // Task B (slow path) — persist the received config to flash.
-    scheduler.schedule([&, received]() {
-      if (!config.save(received)) {
-        printf("[Config] Flash write failed!\n");
-        return;
-      }
+  //   printf("[Config] Received from master.\n");
 
-      printf("[Config] Saved to flash.\n");
+  //   // Task B (slow path) — persist the received config to flash.
+  //   context.scheduler.schedule([&, received]() {
+  //     if (!context.config.save(received)) {
+  //       printf("[Config] Flash write failed!\n");
+  //       return;
+  //     }
 
-      // Task C — apply config to all sensors.
-      scheduler.schedule([&]() {
-        moisture.set_config(config.get());
-        uv.set_config(config.get());
-        pump.set_config(config.get());
-        printf("[Config] Applied to sensors.\n");
-      });
-    });
-  });
+  //     printf("[Config] Saved to flash.\n");
+
+  //     // Task C — apply config to all sensors.
+  //     context.scheduler.schedule([&]() {
+  //       context.moisture.set_config(context.config.get());
+  //       context.uv.set_config(context.config.get());
+  //       context.pump.set_config(context.config.get());
+  //       printf("[Config] Applied to sensors.\n");
+  //     });
+  //   });
+  // });
 
   // -------------------------------------------------------------------------
   // Main loop — drain the task queue
   // -------------------------------------------------------------------------
-  while (!scheduler.empty()) {
-    scheduler.execute();
+  while (!context.scheduler->empty()) {
+    auto task = context.scheduler->pop();
+    if (task != nullptr) {
+      task(context);
+    }
+    sleep_ms(1000);
   }
 
   return 0;
