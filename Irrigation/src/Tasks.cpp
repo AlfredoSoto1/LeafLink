@@ -76,10 +76,31 @@ void Tasks::read_sensors(AppContext &ctx) {
 
   printf("[Water]    raw=%u  level=%.1f%%  ounces=%.1f oz\n",
          water.raw, water.percent, water.ounces_remaining);
-
-  if (moisture.needs_water) {
-    ctx.scheduler->schedule(Tasks::control_pump);
+  
+  // Moisture Level (Determine which 1 out of 4 options is the moisture status)
+  auto range = ctx.moisture.get_moisture_range(moisture.raw);
+  
+  // Control Pump Decision-Making Based on Moisture Status
+  switch (range) {
+    case MoistureRange::VeryDry:
+      ctx.scheduler->schedule(Tasks::control_pump);
+      break;
+    case MoistureRange::Dry:
+      ctx.scheduler->schedule(Tasks::control_pump);
+      break;
+    case MoistureRange::Wet:
+      ctx.scheduler->schedule(Tasks::control_pump);
+      break;
+    case MoistureRange::VeryWet:
+      ctx.pump.off();
+      printf("ERROR: Moisture sensor indicates very wet soil, but needs_water is true. Check calibration.\n");
+      break;
   }
+
+  // if (moisture.needs_water) {
+  //   ctx.scheduler->schedule(Tasks::control_pump):
+  // }
+  
 }
 
 void Tasks::read_power(AppContext &ctx) {

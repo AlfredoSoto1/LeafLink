@@ -4,6 +4,15 @@
 #include "hardware/gpio.h"
 #include "pico/platform.h"
 
+enum class MoistureRange {
+  VeryWet,
+  Wet,
+  Dry,
+  VeryDry
+};
+
+MoistureRange get_moisture_range(uint16_t raw) const;
+
 SoilMoistureSensor::SoilMoistureSensor(uint sample_count, uint32_t warmup_ms, float threshold_percent)
     : m_sample_count(sample_count),
       m_warmup_ms(warmup_ms),
@@ -120,4 +129,18 @@ void SoilMoistureSensor::set_config(const SystemConfig &cfg) {
   m_warmup_ms         = cfg.moisture_warmup_ms;
   m_threshold_percent = cfg.moisture_threshold_pct;
   calibrate(cfg.moisture_dry_cal, cfg.moisture_wet_cal);
+}
+
+SoilMoistureSensor::MoistureRange SoilMoistureSensor::get_moisture_range(uint16_t raw) const {
+  const float percent = raw_to_percent(raw);
+
+  if (percent >= 75.0f) {
+    return MoistureRange::VeryWet;
+  } else if (percent >= 50.0f) {
+    return MoistureRange::Wet;
+  } else if (percent >= 25.0f) {
+    return MoistureRange::Dry;
+  } else {
+    return MoistureRange::VeryDry;
+  }
 }
