@@ -82,10 +82,6 @@ int main() {
     }
     g_timer_fired = false;
 
-    // Reschedule recurring sensor reads each minute
-    context.scheduler->schedule(Tasks::read_sensors);
-    context.scheduler->schedule(Tasks::read_power);
-
     // Drain the entire task queue before returning to sleep
     while (!context.scheduler->empty()) {
       auto task = context.scheduler->pop();
@@ -94,6 +90,16 @@ int main() {
         task(context);
         gpio_put(LED_PIN, 0);
       }
+    }
+
+    // If the queue is empty, we can go back to sleep immediately. 
+    // If not, we'll process remaining tasks on the next timer tick.
+    if (context.scheduler->empty()) {
+      context.scheduler->schedule(Tasks::read_sensors);
+      context.scheduler->schedule(Tasks::read_power);
+      printf("[Main] All tasks complete. Going back to sleep...\n");
+    } else {
+      printf("[Main] Tasks still pending. Will process on next timer tick.\n");
     }
   }
 
