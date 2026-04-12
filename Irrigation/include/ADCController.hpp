@@ -15,7 +15,7 @@ struct VoltageResult {
 // ---------------------------------------------------------------------------
 // Represents a single sensor slot: one enable GPIO + its ADC input index
 // ---------------------------------------------------------------------------
-using ADCChannel = uint;
+using ADCEnableChannel = uint;
 
 // ---------------------------------------------------------------------------
 // ADCController
@@ -37,7 +37,7 @@ public:
   static constexpr size_t ADC_PIN = 26;
 
   // settle_us — microseconds to wait after enabling a sensor before sampling
-  ADCController(const ADCChannel* channels,
+  ADCController(const ADCEnableChannel* channels,
                 size_t            count,
                 uint32_t          settle_us = 10000);
 
@@ -61,7 +61,7 @@ public:
 private:
   size_t count;
   uint32_t settle_us;
-  const ADCChannel* channels;
+  const ADCEnableChannel* channels;
 
   void enable_only(size_t idx);
   void disable_all();

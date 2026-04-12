@@ -26,7 +26,7 @@ int main() {
 
   // ADC channels define the enable/power GPIO for each sensor slot. 
   // For this the ADC input pin is shared.
-  const ADCChannel adc_channels[] = { 
+  const ADCEnableChannel adc_enable_channels[] = { 
     SoilMoistureSensor::POWER_PIN,
     UVSensor::POWER_PIN,
     WaterLevelSensor::POWER_PIN
@@ -40,7 +40,7 @@ int main() {
     .wifi      = WifiModule(uart0),
     .power     = PowerModule(8, 100, 0.5f, 3.0f, 4.2f),
     .config    = ConfigManager(),
-    .adc       = ADCController(adc_channels, 3, 100),
+    .adc       = ADCController(adc_enable_channels, 3, 100),
     .scheduler = &scheduler
   };
 

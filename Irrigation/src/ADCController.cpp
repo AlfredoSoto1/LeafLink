@@ -4,7 +4,7 @@
 #include "hardware/gpio.h"
 #include "pico/stdlib.h"
 
-ADCController::ADCController(const ADCChannel* channels, size_t count, uint32_t settle_us)
+ADCController::ADCController(const ADCEnableChannel* channels, size_t count, uint32_t settle_us)
     : channels(channels), count(count), settle_us(settle_us)
 {
 }
