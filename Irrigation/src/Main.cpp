@@ -23,10 +23,13 @@ int main() {
   // 1 — Construct the application context with all components
   // -------------------------------------------------------------------------
   TaskScheduler scheduler;
-  ADCChannel adc_channels[] = {
-    { .enable_gpio = SoilMoistureSensor::POWER_PIN, .adc_input = SoilMoistureSensor::ADC_INPUT },
-    { .enable_gpio = PowerModule::POWER_PIN,        .adc_input = PowerModule::ADC_INPUT },
-    { .enable_gpio = WaterLevelSensor::POWER_PIN,   .adc_input = WaterLevelSensor::ADC_INPUT },
+
+  // ADC channels define the enable/power GPIO for each sensor slot. 
+  // For this the ADC input pin is shared.
+  const ADCChannel adc_channels[] = { 
+    SoilMoistureSensor::POWER_PIN,
+    UVSensor::POWER_PIN,
+    WaterLevelSensor::POWER_PIN
   };
 
   AppContext context = {

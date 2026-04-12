@@ -15,10 +15,7 @@ struct VoltageResult {
 // ---------------------------------------------------------------------------
 // Represents a single sensor slot: one enable GPIO + its ADC input index
 // ---------------------------------------------------------------------------
-struct ADCChannel {
-  uint enable_gpio;  // GPIO pin that powers/enables this sensor
-  uint adc_input;    // RP2040 ADC input index (0-3 -> GPIO 26-29)
-};
+using ADCChannel = uint;
 
 // ---------------------------------------------------------------------------
 // ADCController
@@ -27,7 +24,7 @@ struct ADCChannel {
 // enable GPIOs. Only one sensor is ever powered at a time.
 //
 // Usage:
-//   static const ADCChannel channels[] = { {10, 0}, {11, 0}, {12, 0} };
+//   static const ADCChannel channels[] = { {10}, {11}, {12} };
 //   ADCController adc(channels, 3);
 //   adc.init();
 //
@@ -37,7 +34,7 @@ struct ADCChannel {
 // ---------------------------------------------------------------------------
 class ADCController {
 public:
-  static constexpr size_t MAX_CHANNELS = 8;
+  static constexpr size_t ADC_PIN = 26;
 
   // settle_us — microseconds to wait after enabling a sensor before sampling
   ADCController(const ADCChannel* channels,
