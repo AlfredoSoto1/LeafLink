@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstddef>
-#include "pico/stdlib.h"
 #include "AppContext.hpp"
 
 class TaskScheduler {
