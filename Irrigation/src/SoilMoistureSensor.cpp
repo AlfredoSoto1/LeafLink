@@ -68,9 +68,9 @@ SoilMoistureSensor::Reading SoilMoistureSensor::read() {
   m_lastNeedsWater = water;
 
   return Reading{
-      .raw = m_lastRaw,
-      .percent = m_lastPercent,
-      .needs_water = m_lastNeedsWater
+    .raw = m_lastRaw,
+    .percent = m_lastPercent,
+    .needs_water = m_lastNeedsWater
   };
 }
 
