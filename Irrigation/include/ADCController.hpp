@@ -59,12 +59,12 @@ public:
   // -----------------------------------------------------------------------
   VoltageResult read_voltage(size_t idx);
 
-  size_t count() const;
+  size_t get_count() const;
 
 private:
-  ADCChannel channels_[MAX_CHANNELS];
-  size_t     count_;
-  uint32_t   settle_us_;
+  size_t count;
+  uint32_t settle_us;
+  const ADCChannel* channels;
 
   void enable_only(size_t idx);
   void disable_all();

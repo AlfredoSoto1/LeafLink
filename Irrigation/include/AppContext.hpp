@@ -7,6 +7,7 @@
 #include "Wifi.hpp"
 #include "PowerModule.hpp"
 #include "SystemConfig.hpp"
+#include "ADCController.hpp"
 
 class TaskScheduler;
 
@@ -21,5 +22,6 @@ struct AppContext {
   WifiModule         wifi;
   PowerModule        power;
   ConfigManager      config;
+  ADCController      adc; 
   TaskScheduler*     scheduler;
 };

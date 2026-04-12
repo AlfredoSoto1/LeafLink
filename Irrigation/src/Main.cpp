@@ -23,6 +23,11 @@ int main() {
   // 1 — Construct the application context with all components
   // -------------------------------------------------------------------------
   TaskScheduler scheduler;
+  ADCChannel adc_channels[] = {
+    { .enable_gpio = SoilMoistureSensor::POWER_PIN, .adc_input = SoilMoistureSensor::ADC_INPUT },
+    { .enable_gpio = PowerModule::POWER_PIN,        .adc_input = PowerModule::ADC_INPUT },
+    { .enable_gpio = WaterLevelSensor::POWER_PIN,   .adc_input = WaterLevelSensor::ADC_INPUT },
+  };
 
   AppContext context = {
     .moisture  = SoilMoistureSensor(16, 500, 30.0f),
@@ -32,6 +37,7 @@ int main() {
     .wifi      = WifiModule(uart0),
     .power     = PowerModule(8, 100, 0.5f, 3.0f, 4.2f),
     .config    = ConfigManager(),
+    .adc       = ADCController(adc_channels, 3, 100),
     .scheduler = &scheduler
   };
 
