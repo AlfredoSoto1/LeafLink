@@ -3,6 +3,7 @@
 #include <cstdint>
 #include "pico/stdlib.h"
 #include "SystemConfig.hpp"
+#include "ADCController.hpp"
 
 // ---------------------------------------------------------------------------
 // PowerModule — reads battery / supply voltage via an ADC-connected voltage
@@ -17,8 +18,6 @@
 
 class PowerModule {
 public:
-  static constexpr uint ADC_PIN   = 29;  // GP29 / ADC3
-  static constexpr uint ADC_INPUT = 3;
   static constexpr uint POWER_PIN = 5;   // Optional enable / load-switch
 
   struct Reading {
@@ -38,7 +37,7 @@ public:
   void power_on();
   void power_off();
 
-  Reading read();
+  Reading read(ADCController &adc);
   void set_config(const SystemConfig &cfg);
 
   uint16_t get_raw()     const;

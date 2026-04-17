@@ -82,13 +82,19 @@ void Tasks::read_sensors(AppContext &ctx) {
   }
 }
 
+static uint16_t just_a_counter = 0;
+
 void Tasks::read_power(AppContext &ctx) {
-  ctx.power.power_on();
-  auto pwr = ctx.power.read();
-  ctx.power.power_off();
+  printf("[Power] Reading power status... (counter=%u)\n", just_a_counter);
+
+  auto pwr = ctx.power.read(ctx.adc);
 
   printf("[Power]    raw=%u  voltage=%.2fV  battery=%.1f%%\n",
          pwr.raw, pwr.voltage, pwr.percent);
+
+  sleep_ms(1000);
+  ctx.scheduler->schedule(Tasks::read_power);
+  just_a_counter++;
 }
 
 void Tasks::control_pump(AppContext &ctx) {

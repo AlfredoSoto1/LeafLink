@@ -28,7 +28,7 @@ RawResult ADCController::read_raw(size_t idx) {
   }
 
   enable_only(idx);
-  adc_select_input(ADC_PIN);
+  adc_select_input(0);
   const uint16_t raw = adc_read();
   disable_all();
 

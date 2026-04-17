@@ -13,33 +13,27 @@ PowerModule::PowerModule(uint sample_count, uint32_t warmup_ms,
       m_v_max(v_max) {}
 
 void PowerModule::init() {
-  gpio_init(POWER_PIN);
-  gpio_set_dir(POWER_PIN, GPIO_OUT);
-  gpio_put(POWER_PIN, 0);
-
-  adc_init();
-  adc_gpio_init(ADC_PIN);
-
+  // gpio_init(POWER_PIN);
+  // gpio_set_dir(POWER_PIN, GPIO_OUT);
+  // gpio_put(POWER_PIN, 0);
   m_initialized = true;
 }
 
 void PowerModule::power_on() {
-  gpio_put(POWER_PIN, 1);
-  sleep_ms(m_warmup_ms);
+  // gpio_put(POWER_PIN, 1);
+  // sleep_ms(m_warmup_ms);
 }
 
 void PowerModule::power_off() {
-  gpio_put(POWER_PIN, 0);
+  // gpio_put(POWER_PIN, 0);
 }
 
-PowerModule::Reading PowerModule::read() {
+PowerModule::Reading PowerModule::read(ADCController &adc) {
   ensure_initialized();
 
-  adc_select_input(ADC_INPUT);
-
-  uint32_t sum = 0;
+  uint16_t sum = 0;
   for (uint i = 0; i < m_sample_count; ++i) {
-    sum += adc_read();
+    sum += adc.read_raw(0).value;
   }
 
   const uint16_t raw     = static_cast<uint16_t>(sum / m_sample_count);
