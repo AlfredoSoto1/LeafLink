@@ -54,47 +54,59 @@ void Tasks::apply_config_to_sensors(AppContext &ctx) {
 }
 
 void Tasks::read_sensors(AppContext &ctx) {
-  ctx.moisture.power_on();
-  auto moisture = ctx.moisture.read();
-  ctx.moisture.power_off();
-
-  ctx.uv.power_on();
-  auto uv = ctx.uv.read();
-  ctx.uv.power_off();
-
-  ctx.water.power_on();
-  auto water = ctx.water.read();
-  ctx.water.power_off();
-
-  printf("[Moisture] raw=%u  percent=%.2f%%  needs_water=%s\n",
-         moisture.raw, moisture.percent,
-         moisture.needs_water ? "yes" : "no");
-
-  printf("[UV]       raw=%u  uv_index=%.2f  alert=%s\n",
-         uv.raw, uv.uv_index,
-         uv.is_alert ? "yes" : "no");
-
-  printf("[Water]    raw=%u  level=%.1f%%  ounces=%.1f oz\n",
-         water.raw, water.percent, water.ounces_remaining);
-
-  if (moisture.needs_water) {
-    ctx.scheduler->schedule(Tasks::control_pump);
+  auto moisture = ctx.moisture.read(ctx.adc);
+  if (moisture.error) {
+    printf("[Sensors] Moisture sensor read error!\n");
+    ctx.scheduler->schedule(Tasks::read_sensors);
+    return;
   }
+
+  auto uv = ctx.uv.read(ctx.adc);
+  if (uv.error) {
+    printf("[Sensors] UV sensor read error!\n");
+    ctx.scheduler->schedule(Tasks::read_sensors);
+    return;
+  }
+
+  auto water = ctx.water.read(ctx.adc);
+  if (water.error) {
+    printf("[Sensors] Water sensor read error!\n");
+    ctx.scheduler->schedule(Tasks::read_sensors);
+    return;
+  }
+
+  auto power = ctx.power.read(ctx.adc);
+  if (power.error) {
+    printf("[Sensors] Power sensor read error!\n");
+    ctx.scheduler->schedule(Tasks::read_sensors);
+    return;
+  }
+
+  // printf("[Sensors] Moisture: raw=%u  percent=%.1f%%  needs_water=%s\n",
+  //        moisture.raw, moisture.percent, moisture.needs_water ? "YES" : "NO");
+  // printf("[Sensors] UV:       raw=%u  uv_index=%.2f  alert=%s\n",
+  //        uv.raw, uv.uv_index, uv.is_alert ? "YES" : "NO");
+  // printf("[Sensors] Water:    raw=%u  percent=%.1f%%  oz_remaining=%.1f\n",
+  //        water.raw, water.percent, water.ounces_remaining);
+  printf("[Sensors] Power:    raw=%u  ratio=%.2f  voltage=%.2fV  battery=%.1f%%\n",
+         power.raw, (static_cast<float>(power.raw) / 4095.0f) * 3.3f, power.voltage, power.percent);
+
+  ctx.scheduler->schedule(Tasks::read_sensors);
 }
 
 static uint16_t just_a_counter = 0;
 
 void Tasks::read_power(AppContext &ctx) {
-  printf("[Power] Reading power status... (counter=%u)\n", just_a_counter);
+  // printf("[Power] Reading power status... (counter=%u)\n", just_a_counter);
 
-  auto pwr = ctx.power.read(ctx.adc);
+  // auto pwr = ctx.power.read(ctx.adc);
 
-  printf("[Power]    raw=%u  voltage=%.2fV  battery=%.1f%%\n",
-         pwr.raw, pwr.voltage, pwr.percent);
+  // printf("[Power]    raw=%u  voltage=%.2fV  battery=%.1f%%\n",
+  //        pwr.raw, pwr.voltage, pwr.percent);
 
-  sleep_ms(1000);
-  ctx.scheduler->schedule(Tasks::read_power);
-  just_a_counter++;
+  // sleep_ms(1000);
+  // ctx.scheduler->schedule(Tasks::read_power);
+  // just_a_counter++;
 }
 
 void Tasks::control_pump(AppContext &ctx) {

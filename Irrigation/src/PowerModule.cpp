@@ -1,8 +1,6 @@
 #include "PowerModule.hpp"
 
-#include "hardware/adc.h"
-#include "hardware/gpio.h"
-#include "pico/platform.h"
+#include <stdio.h>
 
 PowerModule::PowerModule(uint sample_count, uint32_t warmup_ms,
                          float divider_ratio, float v_min, float v_max)
@@ -13,19 +11,7 @@ PowerModule::PowerModule(uint sample_count, uint32_t warmup_ms,
       m_v_max(v_max) {}
 
 void PowerModule::init() {
-  // gpio_init(POWER_PIN);
-  // gpio_set_dir(POWER_PIN, GPIO_OUT);
-  // gpio_put(POWER_PIN, 0);
   m_initialized = true;
-}
-
-void PowerModule::power_on() {
-  // gpio_put(POWER_PIN, 1);
-  // sleep_ms(m_warmup_ms);
-}
-
-void PowerModule::power_off() {
-  // gpio_put(POWER_PIN, 0);
 }
 
 PowerModule::Reading PowerModule::read(ADCController &adc) {
@@ -33,17 +19,24 @@ PowerModule::Reading PowerModule::read(ADCController &adc) {
 
   uint16_t sum = 0;
   for (uint i = 0; i < m_sample_count; ++i) {
-    sum += adc.read_raw(0).value;
+    auto result = adc.read_raw(ADC_SELECT, m_warmup_ms);
+    if (result.valid) {
+      sum += result.value;
+    } else {
+      return Reading{ .error = true };
+    }
   }
 
   const uint16_t raw     = static_cast<uint16_t>(sum / m_sample_count);
   const float    voltage = raw_to_voltage(raw);
 
   float percent = 0.0f;
-  if (m_v_max > m_v_min) {
-    if (voltage <= m_v_min)      percent = 0.0f;
-    else if (voltage >= m_v_max) percent = 100.0f;
-    else percent = ((voltage - m_v_min) / (m_v_max - m_v_min)) * 100.0f;
+  if (voltage <= m_v_min) {
+    percent = 0.0f;
+  } else if (voltage >= m_v_max) {
+    percent = 100.0f;
+  } else {
+    percent = ((voltage - m_v_min) / (m_v_max - m_v_min)) * 100.0f;
   }
 
   m_last_raw     = raw;
@@ -60,13 +53,20 @@ void PowerModule::set_config(const SystemConfig &cfg) {
   m_sample_count  = cfg.power_sample_count;
 }
 
-uint16_t PowerModule::get_raw()     const { return m_last_raw;     }
-float    PowerModule::get_voltage() const { return m_last_voltage; }
-float    PowerModule::get_percent() const { return m_last_percent; }
+uint16_t PowerModule::get_raw() const { 
+  return m_last_raw;  
+}
+
+float PowerModule::get_voltage() const { 
+  return m_last_voltage; 
+}
+
+float PowerModule::get_percent() const { 
+  return m_last_percent; 
+}
 
 float PowerModule::raw_to_voltage(uint16_t raw) const {
-  const float v_adc = (static_cast<float>(raw) / ADC_MAX) * ADC_VREF;
-  if (m_divider_ratio <= 0.0f) return 0.0f;
+  const float v_adc = (static_cast<float>(raw) / 4095.0f) * 3.3f;
   return v_adc / m_divider_ratio;
 }
 

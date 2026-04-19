@@ -3,6 +3,7 @@
 #include <cstdint>
 #include "pico/stdlib.h"
 #include "SystemConfig.hpp"
+#include "ADCController.hpp"
 
 // ---------------------------------------------------------------------------
 // WaterLevelSensor — DIYables resistive water level sensor (analog)
@@ -15,14 +16,14 @@
 
 class WaterLevelSensor {
 public:
-  static constexpr uint ADC_PIN   = 28;  // GP28 / ADC2
-  static constexpr uint ADC_INPUT = 2;
   static constexpr uint POWER_PIN = 4;
+  static constexpr uint ADC_SELECT = 2;
 
   struct Reading {
     uint16_t raw;
     float    percent;         // 0–100 %
     float    ounces_remaining; // calculated from tank capacity
+    bool     error = false;
   };
 
 public:
@@ -31,10 +32,8 @@ public:
   ~WaterLevelSensor() = default;
 
   void init();
-  void power_on();
-  void power_off();
 
-  Reading read();
+  Reading read(ADCController &adc);
   void calibrate(uint16_t dry_val, uint16_t wet_val);
   void set_config(const SystemConfig &cfg);
 

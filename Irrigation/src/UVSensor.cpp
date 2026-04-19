@@ -1,9 +1,5 @@
 #include "UVSensor.hpp"
 
-#include "hardware/adc.h"
-#include "hardware/gpio.h"
-#include "pico/platform.h"
-
 // ML8511 output voltage: ~1.0 V at 0 UV index, ~2.8 V at ~15 UV index
 // ADC reference 3.3 V, 12-bit resolution (0–4095)
 static constexpr float ADC_VREF     = 3.3f;
@@ -22,33 +18,20 @@ UVSensor::UVSensor(uint sample_count, uint32_t warmup_ms, float alert_threshold)
       m_initialized(false) {}
 
 void UVSensor::init() {
-  gpio_init(POWER_PIN);
-  gpio_set_dir(POWER_PIN, GPIO_OUT);
-  gpio_put(POWER_PIN, 0);
-
-  adc_init();
-  adc_gpio_init(ADC_PIN);
-
   m_initialized = true;
 }
 
-void UVSensor::power_on() {
-  gpio_put(POWER_PIN, 1);
-  sleep_ms(m_warmup_ms);
-}
-
-void UVSensor::power_off() {
-  gpio_put(POWER_PIN, 0);
-}
-
-UVSensor::Reading UVSensor::read() {
+UVSensor::Reading UVSensor::read(ADCController &adc) {
   ensure_initialized();
-
-  adc_select_input(ADC_INPUT);
 
   uint32_t sum = 0;
   for (uint i = 0; i < m_sample_count; ++i) {
-    sum += adc_read();
+    auto result = adc.read_raw(ADC_SELECT, m_warmup_ms);
+    if (result.valid) {
+      sum += result.value;
+    } else {
+      return Reading{ .error = true };
+    }
   }
 
   const uint16_t raw      = static_cast<uint16_t>(sum / m_sample_count);

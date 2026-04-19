@@ -18,12 +18,14 @@
 
 class PowerModule {
 public:
-  static constexpr uint POWER_PIN = 5;   // Optional enable / load-switch
+  static constexpr uint POWER_PIN = 20;
+  static constexpr uint ADC_SELECT = 0;
 
   struct Reading {
     uint16_t raw;
     float    voltage;   // actual input voltage (after divider correction)
     float    percent;   // 0–100 % charge estimate
+    bool     error = false;
   };
 
 public:
@@ -34,24 +36,19 @@ public:
   ~PowerModule() = default;
 
   void init();
-  void power_on();
-  void power_off();
 
   Reading read(ADCController &adc);
   void set_config(const SystemConfig &cfg);
 
-  uint16_t get_raw()     const;
-  float    get_voltage() const;
-  float    get_percent() const;
+  uint16_t get_raw()        const;
+  float    get_voltage()    const;
+  float    get_percent()    const;
 
 private:
   float raw_to_voltage(uint16_t raw) const;
   void  ensure_initialized() const;
 
 private:
-  static constexpr float ADC_VREF = 3.3f;
-  static constexpr float ADC_MAX  = 4095.0f;
-
   uint     m_sample_count;
   uint32_t m_warmup_ms;
   float    m_divider_ratio;

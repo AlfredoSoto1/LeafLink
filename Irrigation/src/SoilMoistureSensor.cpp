@@ -1,9 +1,5 @@
 #include "SoilMoistureSensor.hpp"
 
-#include "hardware/adc.h"
-#include "hardware/gpio.h"
-#include "pico/platform.h"
-
 SoilMoistureSensor::SoilMoistureSensor(uint sample_count, uint32_t warmup_ms, float threshold_percent)
     : m_sample_count(sample_count),
       m_warmup_ms(warmup_ms),
@@ -16,24 +12,7 @@ SoilMoistureSensor::SoilMoistureSensor(uint sample_count, uint32_t warmup_ms, fl
       m_initialized(false) {}
 
 void SoilMoistureSensor::init() {
-  gpio_init(POWER_PIN);
-  gpio_set_dir(POWER_PIN, GPIO_OUT);
-  gpio_put(POWER_PIN, 0);
-
-  adc_init();
-  adc_gpio_init(ADC_PIN);
-  adc_select_input(ADC_INPUT);
-
   m_initialized = true;
-}
-
-void SoilMoistureSensor::power_on() {
-  gpio_put(POWER_PIN, 1);
-  sleep_ms(m_warmup_ms);
-}
-
-void SoilMoistureSensor::power_off() {
-  gpio_put(POWER_PIN, 0);
 }
 
 void SoilMoistureSensor::calibrate(uint16_t dry_val, uint16_t wet_val) {
@@ -48,14 +27,18 @@ void SoilMoistureSensor::calibrate(uint16_t dry_val, uint16_t wet_val) {
   }
 }
 
-SoilMoistureSensor::Reading SoilMoistureSensor::read() {
+SoilMoistureSensor::Reading SoilMoistureSensor::read(ADCController &adc) {
   ensure_initialized();
-
-  adc_select_input(ADC_INPUT);
 
   uint32_t sum = 0;
   for (uint i = 0; i < m_sample_count; ++i) {
-    sum += adc_read();
+    auto result = adc.read_raw(ADC_SELECT, m_warmup_ms);
+    if (result.valid) {
+      sum += result.value;
+    } else {
+      // If any sample is invalid, return an error reading (0 % moisture, needs water)
+      return Reading{ .error = true };        
+    }
   }
 
   // Since SAMPLE_COUNT = 16, divide efficiently with a shift.
@@ -74,16 +57,16 @@ SoilMoistureSensor::Reading SoilMoistureSensor::read() {
   };
 }
 
-uint16_t SoilMoistureSensor::get_raw() const {
-  return m_lastRaw;
+uint16_t SoilMoistureSensor::get_raw() const { 
+  return m_lastRaw; 
 }
 
-float SoilMoistureSensor::get_percent() const {
-  return m_lastPercent;
+float SoilMoistureSensor::get_percent() const { 
+  return m_lastPercent; 
 }
 
-bool SoilMoistureSensor::needs_water() const {
-  return m_lastNeedsWater;
+bool SoilMoistureSensor::needs_water() const { 
+  return m_lastNeedsWater; 
 }
 
 float SoilMoistureSensor::raw_to_percent(uint16_t raw) const {

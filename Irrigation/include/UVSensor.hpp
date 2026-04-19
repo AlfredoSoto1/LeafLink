@@ -3,6 +3,7 @@
 #include <cstdint>
 #include "pico/stdlib.h"
 #include "SystemConfig.hpp"
+#include "ADCController.hpp"
 
 // ---------------------------------------------------------------------------
 // UVSensor — ML8511 analog UV sensor on ADC
@@ -10,14 +11,14 @@
 
 class UVSensor {
 public:
-  static constexpr uint ADC_PIN   = 27;
-  static constexpr uint ADC_INPUT = 1;
   static constexpr uint POWER_PIN = 3;
+  static constexpr uint ADC_SELECT = 3;
 
   struct Reading {
     uint16_t raw;
     float    uv_index;
     bool     is_alert;
+    bool     error = false;
   };
 
 public:
@@ -25,15 +26,13 @@ public:
   ~UVSensor() = default;
 
   void init();
-  void power_on();
-  void power_off();
 
-  Reading read();
+  Reading read(ADCController &adc);
   void set_config(const SystemConfig &cfg);
 
-  uint16_t get_raw()      const;
-  float    get_uv_index() const;
-  bool     is_alert()     const;
+  uint16_t get_raw()        const;
+  float    get_uv_index()   const;
+  bool     is_alert()       const;
 
 private:
   float raw_to_uv_index(uint16_t raw) const;

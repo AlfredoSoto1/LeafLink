@@ -4,8 +4,8 @@
 #include "hardware/gpio.h"
 #include "pico/stdlib.h"
 
-ADCController::ADCController(const ADCEnableChannel* channels, size_t count, uint32_t settle_us)
-    : channels(channels), count(count), settle_us(settle_us)
+ADCController::ADCController(const ADCEnableChannel* channels, size_t count)
+    : channels(channels), count(count)
 {
 }
 
@@ -22,12 +22,12 @@ void ADCController::init() {
   adc_gpio_init(ADC_PIN);
 }
 
-RawResult ADCController::read_raw(size_t idx) {
+RawResult ADCController::read_raw(size_t idx, uint32_t warmup_ms) {
   if (idx >= count) {
     return { 0, false };
   }
 
-  enable_only(idx);
+  enable_only(idx, warmup_ms);
   adc_select_input(0);
   const uint16_t raw = adc_read();
   disable_all();
@@ -35,23 +35,12 @@ RawResult ADCController::read_raw(size_t idx) {
   return { raw, true };
 }
 
-VoltageResult ADCController::read_voltage(size_t idx) {
-  RawResult r = read_raw(idx);
-  if (!r.valid) {
-    return { 0.0f, false };
-  }
-
-  constexpr float VREF    = 3.3f;
-  constexpr float ADC_MAX = 4095.0f;
-  return { (r.value / ADC_MAX) * VREF, true };
-}
-
 size_t ADCController::get_count() const { return count; }
 
-void ADCController::enable_only(size_t idx) {
+void ADCController::enable_only(size_t idx, uint32_t warmup_ms) {
   disable_all();
   gpio_put(channels[idx], 1);
-  sleep_us(settle_us);
+  sleep_us(warmup_ms);
 }
 
 void ADCController::disable_all() {

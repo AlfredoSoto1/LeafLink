@@ -7,11 +7,6 @@ struct RawResult {
   bool     valid;
 };
 
-struct VoltageResult {
-  float value;
-  bool  valid;
-};
-
 // ---------------------------------------------------------------------------
 // Represents a single sensor slot: one enable GPIO + its ADC input index
 // ---------------------------------------------------------------------------
@@ -37,9 +32,7 @@ public:
   static constexpr size_t ADC_PIN = 26;
 
   // settle_us — microseconds to wait after enabling a sensor before sampling
-  ADCController(const ADCEnableChannel* channels,
-                size_t            count,
-                uint32_t          settle_us = 10000);
+  ADCController(const ADCEnableChannel* channels, size_t count);
 
   // -----------------------------------------------------------------------
   // Initialise all enable GPIOs (output, default LOW) and ADC hardware
@@ -49,20 +42,14 @@ public:
   // -----------------------------------------------------------------------
   // Read raw 12-bit value (0-4095) from sensor at index idx
   // -----------------------------------------------------------------------
-  RawResult read_raw(size_t idx);
-
-  // -----------------------------------------------------------------------
-  // Read calibrated voltage (0.0-3.3 V) from sensor at index idx
-  // -----------------------------------------------------------------------
-  VoltageResult read_voltage(size_t idx);
+  RawResult read_raw(size_t idx, uint32_t warmup_ms);
 
   size_t get_count() const;
 
 private:
   size_t count;
-  uint32_t settle_us;
   const ADCEnableChannel* channels;
 
-  void enable_only(size_t idx);
+  void enable_only(size_t idx, uint32_t warmup_ms);
   void disable_all();
 };

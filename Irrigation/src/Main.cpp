@@ -27,22 +27,22 @@ int main() {
   // ADC channels define the enable/power GPIO for each sensor slot. 
   // For this the ADC input pin is shared.
   const ADCEnableChannel adc_enable_channels[] = { 
-    // SoilMoistureSensor::POWER_PIN,
-    // UVSensor::POWER_PIN,
-    // WaterLevelSensor::POWER_PIN,
-    PowerModule::POWER_PIN
+    PowerModule::POWER_PIN,         // ADC_SELECT = 0
+    SoilMoistureSensor::POWER_PIN,  // ADC_SELECT = 1
+    WaterLevelSensor::POWER_PIN,    // ADC_SELECT = 3
+    UVSensor::POWER_PIN,            // ADC_SELECT = 2
   };
 
   AppContext context = {
     .moisture  = SoilMoistureSensor(16, 500, 30.0f),
-    .uv        = UVSensor(16, 100, 6.0f),
-    .water     = WaterLevelSensor(8, 100, 128.0f),  // 128 oz = 1 gallon default
+    .uv        = UVSensor(16, 500, 6.0f),
+    .water     = WaterLevelSensor(8, 500, 128.0f),  // 128 oz = 1 gallon default
     .pump      = Pump(),
     .wifi      = WifiModule(uart0),
-    // .power     = PowerModule(8, 100, 0.5f, 3.0f, 4.2f),
-    .power     = PowerModule(8, 100, 0.5f, 0.0f, 3.3f),
+    // .power     = PowerModule(8, 500, 0.5f, 3.0f, 4.2f),
+    .power     = PowerModule(8, 400, 0.5f, 0.0f, 3.3f),
     .config    = ConfigManager(),
-    .adc       = ADCController(adc_enable_channels, 1, 100),
+    .adc       = ADCController(adc_enable_channels, 4),
     .scheduler = &scheduler
   };
 
@@ -51,23 +51,20 @@ int main() {
   // -------------------------------------------------------------------------
   context.adc.init();
   
-  // context.moisture.calibrate(3000, 1500);
-  // context.moisture.init();
-
-  // context.uv.init();
-
-  // context.water.calibrate(0, 3500);
-  // context.water.init();
-
-  // context.pump.init();
+  context.moisture.calibrate(3000, 1500);
+  context.moisture.init();
+  context.uv.init();
+  context.water.calibrate(0, 3500);
+  context.water.init();
   context.power.init();
+  // context.pump.init();
 
   // -------------------------------------------------------------------------
   // 3 — Schedule startup task chain
   // -------------------------------------------------------------------------
   // context.scheduler->schedule(Tasks::load_config_from_flash);
-  // context.scheduler->schedule(Tasks::read_sensors);
-  context.scheduler->schedule(Tasks::read_power);
+  context.scheduler->schedule(Tasks::read_sensors);
+  // context.scheduler->schedule(Tasks::read_power);
 
   // -------------------------------------------------------------------------
   // 4 — Set up LED and repeating 60-second timer
