@@ -40,7 +40,7 @@ int main() {
     .pump      = Pump(),
     .wifi      = WifiModule(uart0),
     // .power     = PowerModule(8, 500, 0.5f, 3.0f, 4.2f),
-    .power     = PowerModule(8, 400, 0.5f, 0.0f, 3.3f),
+    .power     = PowerModule(8, 500, 0.5f, 0.0f, 3.3f),
     .config    = ConfigManager(),
     .adc       = ADCController(adc_enable_channels, 4),
     .scheduler = &scheduler

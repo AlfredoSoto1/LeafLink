@@ -39,17 +39,18 @@ public:
   // -----------------------------------------------------------------------
   void init();
 
+  void enable_only(size_t idx, uint32_t warmup_ms);
+  void disable_all();
+
   // -----------------------------------------------------------------------
   // Read raw 12-bit value (0-4095) from sensor at index idx
   // -----------------------------------------------------------------------
-  RawResult read_raw(size_t idx, uint32_t warmup_ms);
+  RawResult read_raw();
 
   size_t get_count() const;
 
 private:
   size_t count;
   const ADCEnableChannel* channels;
-
-  void enable_only(size_t idx, uint32_t warmup_ms);
-  void disable_all();
+  bool enabled = false;
 };

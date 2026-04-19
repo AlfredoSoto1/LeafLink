@@ -16,16 +16,20 @@ void PowerModule::init() {
 
 PowerModule::Reading PowerModule::read(ADCController &adc) {
   ensure_initialized();
+  adc.enable_only(ADC_SELECT, m_warmup_ms);
 
   uint16_t sum = 0;
   for (uint i = 0; i < m_sample_count; ++i) {
-    auto result = adc.read_raw(ADC_SELECT, m_warmup_ms);
+    auto result = adc.read_raw();
     if (result.valid) {
       sum += result.value;
     } else {
+      adc.disable_all();
       return Reading{ .error = true };
     }
   }
+
+  adc.disable_all();
 
   const uint16_t raw     = static_cast<uint16_t>(sum / m_sample_count);
   const float    voltage = raw_to_voltage(raw);

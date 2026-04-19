@@ -29,17 +29,21 @@ void SoilMoistureSensor::calibrate(uint16_t dry_val, uint16_t wet_val) {
 
 SoilMoistureSensor::Reading SoilMoistureSensor::read(ADCController &adc) {
   ensure_initialized();
+  adc.enable_only(ADC_SELECT, m_warmup_ms);
 
   uint32_t sum = 0;
   for (uint i = 0; i < m_sample_count; ++i) {
-    auto result = adc.read_raw(ADC_SELECT, m_warmup_ms);
+    auto result = adc.read_raw();
     if (result.valid) {
       sum += result.value;
     } else {
       // If any sample is invalid, return an error reading (0 % moisture, needs water)
+      adc.disable_all();
       return Reading{ .error = true };        
     }
   }
+
+  adc.disable_all();
 
   // Since SAMPLE_COUNT = 16, divide efficiently with a shift.
   const uint16_t raw = static_cast<uint16_t>(sum >> 4);

@@ -16,7 +16,7 @@
 
 class WaterLevelSensor {
 public:
-  static constexpr uint POWER_PIN = 4;
+  static constexpr uint POWER_PIN = 21;
   static constexpr uint ADC_SELECT = 2;
 
   struct Reading {
