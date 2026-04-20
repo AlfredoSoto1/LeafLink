@@ -8,6 +8,7 @@
 #include "PowerSensor.hpp"
 #include "SystemConfig.hpp"
 #include "ADCController.hpp"
+#include "PlantStatus.hpp"
 
 class TaskScheduler;
 
@@ -24,4 +25,5 @@ struct AppContext {
   ConfigManager      config;
   ADCController      adc; 
   TaskScheduler*     scheduler;
+  PlantStatus        plant_status = {};
 };

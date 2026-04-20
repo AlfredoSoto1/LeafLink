@@ -1,7 +1,23 @@
 #include "Tasks.hpp"
 #include "TaskScheduler.hpp"
+#include <cstdarg>
 #include <stdio.h>
 #include "pico/stdlib.h"
+
+void push_notification(AppContext &ctx, const char *message) {
+  ctx.plant_status.write_message(message);
+}
+
+void push_notificationf(AppContext &ctx, const char *format, ...) {
+  char buffer[PlantStatus::MAX_MESSAGE_LENGTH] = {};
+
+  va_list args;
+  va_start(args, format);
+  vsnprintf(buffer, sizeof(buffer), format, args);
+  va_end(args);
+
+  push_notification(ctx, buffer);
+}
 
 void Tasks::load_config_from_flash(AppContext &ctx) {
   if (ctx.config.load()) {
@@ -53,47 +69,6 @@ void Tasks::apply_config_to_sensors(AppContext &ctx) {
   printf("[Config] Applied to all sensors.\n");
 }
 
-void Tasks::read_sensors(AppContext &ctx) {
-  // auto moisture = ctx.moisture.read(ctx.adc);
-  // if (moisture.error) {
-  //   printf("[Sensors] Moisture sensor read error!\n");
-  //   ctx.scheduler->schedule(Tasks::read_sensors);
-  //   return;
-  // }
-
-  // auto uv = ctx.uv.read(ctx.adc);
-  // if (uv.error) {
-  //   printf("[Sensors] UV sensor read error!\n");
-  //   ctx.scheduler->schedule(Tasks::read_sensors);
-  //   return;
-  // }
-
-  auto water = ctx.water.read(ctx.adc);
-  if (water.error) {
-    printf("[Sensors] Water sensor read error!\n");
-    ctx.scheduler->schedule(Tasks::read_sensors);
-    return;
-  }
-
-  auto power = ctx.power.read(ctx.adc);
-  if (power.error) {
-    printf("[Sensors] Power sensor read error!\n");
-    ctx.scheduler->schedule(Tasks::read_sensors);
-    return;
-  }
-
-  // printf("[Sensors] Moisture: raw=%u  percent=%.1f%%  needs_water=%s\n",
-  //        moisture.raw, moisture.percent, moisture.needs_water ? "YES" : "NO");
-  // printf("[Sensors] UV:       raw=%u  uv_index=%.2f  alert=%s\n",
-  //        uv.raw, uv.uv_index, uv.is_alert ? "YES" : "NO");
-  printf("[Sensors] Water:    raw=%u  percent=%.1f%%  oz_remaining=%.1f\n",
-         water.raw, water.percent, water.ounces_remaining);
-  printf("[Sensors] Power:    raw=%u  ratio=%.2f  voltage=%.2fV  battery=%.1f%%\n",
-         power.raw, (static_cast<float>(power.raw) / 4095.0f) * 3.3f, power.voltage, power.percent);
-
-  ctx.scheduler->schedule(Tasks::read_sensors);
-}
-
 void Tasks::read_power(AppContext &ctx) {
   auto power = ctx.power.read(ctx.adc);
   if (power.error) {
@@ -102,6 +77,11 @@ void Tasks::read_power(AppContext &ctx) {
     return;
   }
 
+  // Update the shared plant status with the latest power readings
+  PlantStatus::StatusData& status = ctx.plant_status.write_status();
+  status.power_voltage = power.voltage;
+  status.power_percent = power.percent;
+  
   printf("[Sensors] Power:    raw=%u  ratio=%.2f  voltage=%.2fV  battery=%.1f%%\n",
          power.raw, (static_cast<float>(power.raw) / 4095.0f) * 3.3f, power.voltage, power.percent);
 }
@@ -112,6 +92,8 @@ void Tasks::read_power(AppContext &ctx) {
  * configured threshold, it schedules the pump control task.
  */
 void Tasks::check_plant_conditions(AppContext &ctx) {
+  PlantStatus::StatusData& status = ctx.plant_status.write_status();
+  
   // Read current sensor values
   auto moisture = ctx.moisture.read(ctx.adc);
   if (moisture.error) {
@@ -119,7 +101,11 @@ void Tasks::check_plant_conditions(AppContext &ctx) {
     ctx.scheduler->schedule(Tasks::notify_error);
     return;
   }
-  
+
+  // Update the shared plant status with the latest moisture readings
+  status.moisture_percent = moisture.percent;
+  status.moisture_needs_water = moisture.needs_water;
+
   // Check if watering is needed based on soil moisture
   if (moisture.needs_water) {
     printf("[Plant] Soil moisture low (%.1f%%). Scheduling pump control task.\n", moisture.percent);
@@ -133,6 +119,10 @@ void Tasks::check_plant_conditions(AppContext &ctx) {
     ctx.scheduler->schedule(Tasks::notify_error);
     return;
   }
+
+  // Update the shared plant status with the latest UV readings
+  status.uv_index = uv.uv_index;
+  status.uv_alert = uv.is_alert;
 
   // If UV index is above alert threshold, schedule a notification task
   if (uv.is_alert) {
