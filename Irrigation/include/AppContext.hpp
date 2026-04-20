@@ -3,7 +3,7 @@
 #include "SoilMoistureSensor.hpp"
 #include "UVSensor.hpp"
 #include "WaterLevelSensor.hpp"
-#include "Pump.hpp"
+#include "PumpController.hpp"
 #include "Wifi.hpp"
 #include "PowerSensor.hpp"
 #include "SystemConfig.hpp"
@@ -19,7 +19,7 @@ struct AppContext {
   SoilMoistureSensor moisture;
   UVSensor           uv;
   WaterLevelSensor   water;
-  PumpController               pump;
+  PumpController     pump;
   WifiModule         wifi;
   PowerSensor        power;
   ConfigManager      config;

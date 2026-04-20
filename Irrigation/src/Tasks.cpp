@@ -137,7 +137,7 @@ void Tasks::check_plant_conditions(AppContext &ctx) {
 
 void Tasks::control_pump(AppContext &ctx) {
   printf("[Pump] Running for configured duration.\n");
-  ctx.pump.run_for();
+  ctx.pump.run();
 }
 
 void Tasks::notify_error(AppContext &ctx) {
