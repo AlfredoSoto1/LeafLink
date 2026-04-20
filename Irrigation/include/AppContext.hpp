@@ -19,7 +19,7 @@ struct AppContext {
   SoilMoistureSensor moisture;
   UVSensor           uv;
   WaterLevelSensor   water;
-  Pump               pump;
+  PumpController               pump;
   WifiModule         wifi;
   PowerSensor        power;
   ConfigManager      config;

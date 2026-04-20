@@ -1,9 +1,9 @@
-#include "Pump.hpp"
+#include "PumpController.hpp"
 
 #include "hardware/gpio.h"
 #include "pico/platform.h"
 
-void Pump::init() {
+void PumpController::init() {
   gpio_init(POWER_PIN);
   gpio_set_dir(POWER_PIN, GPIO_OUT);
   gpio_put(POWER_PIN, 0);
@@ -12,37 +12,33 @@ void Pump::init() {
   m_initialized = true;
 }
 
-void Pump::on() {
+void PumpController::power_on() {
   ensure_initialized();
   gpio_put(POWER_PIN, 1);
   m_running = true;
 }
 
-void Pump::off() {
+void PumpController::power_off() {
   ensure_initialized();
   gpio_put(POWER_PIN, 0);
   m_running = false;
 }
 
-void Pump::run_for(uint32_t duration_ms) {
-  on();
-  sleep_ms(duration_ms);
-  off();
+void PumpController::run() {
+  power_on();
+  sleep_ms(m_default_duration_ms);
+  power_off();
 }
 
-void Pump::run_for() {
-  run_for(m_default_duration_ms);
-}
-
-void Pump::set_config(const SystemConfig &cfg) {
+void PumpController::set_config(const SystemConfig &cfg) {
   m_default_duration_ms = cfg.pump_run_duration_ms;
 }
 
-bool Pump::is_running() const {
+bool PumpController::is_running() const {
   return m_running;
 }
 
-void Pump::ensure_initialized() const {
+void PumpController::ensure_initialized() const {
   if (!m_initialized) {
     panic("Pump used before init()");
   }

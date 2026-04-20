@@ -37,7 +37,7 @@ int main() {
     .moisture  = SoilMoistureSensor(16, 500, 30.0f),
     .uv        = UVSensor(16, 500, 6.0f),
     .water     = WaterLevelSensor(8, 500, 128.0f),  // 128 oz = 1 gallon default
-    .pump      = Pump(),
+    .pump      = PumpController(),
     .wifi      = WifiModule(uart0),
     // .power     = PowerSensor(8, 500, 0.5f, 3.0f, 4.2f),
     .power     = PowerSensor(8, 500, 0.5f, 0.0f, 3.3f),

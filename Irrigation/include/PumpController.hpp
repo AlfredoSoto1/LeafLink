@@ -8,24 +8,22 @@
 // Pump — motor driver controlled via GPIO
 // ---------------------------------------------------------------------------
 
-class Pump {
+class PumpController {
 public:
   static constexpr uint POWER_PIN = 15;
 
 public:
-  Pump() = default;
-  ~Pump() = default;
+  PumpController() = default;
 
   void init();
-  void on();
-  void off();
-  void run_for(uint32_t duration_ms);
-  void run_for();        // uses configured duration from set_config
-  void set_config(const SystemConfig &cfg);
-
+  
+  void run();
   bool is_running() const;
-
+  void set_config(const SystemConfig &cfg);
+  
 private:
+  void power_on();
+  void power_off();
   void ensure_initialized() const;
 
 private:
