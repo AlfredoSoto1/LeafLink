@@ -86,6 +86,36 @@ void Tasks::read_power(AppContext &ctx) {
          power.raw, (static_cast<float>(power.raw) / 4095.0f) * 3.3f, power.voltage, power.percent);
 }
 
+void Tasks::read_sensors(AppContext &ctx) {
+  auto moisture = ctx.moisture.read(ctx.adc);
+  if (moisture.error) {
+    printf("[Sensors] Moisture sensor read error!\n");
+    ctx.scheduler->schedule(Tasks::notify_error);
+    return;
+  }
+
+  auto uv = ctx.uv.read(ctx.adc);
+  if (uv.error) {
+    printf("[Sensors] UV sensor read error!\n");
+    ctx.scheduler->schedule(Tasks::notify_error);
+    return;
+  }
+
+  auto water = ctx.water.read(ctx.adc);
+  if (water.error) {
+    printf("[Sensors] Water level sensor read error!\n");
+    ctx.scheduler->schedule(Tasks::notify_error);
+    return;
+  }
+
+  printf("[Sensors] Moisture: raw=%u  percent=%.1f%%\n", moisture.raw, moisture.percent);
+  printf("[Sensors] UV:       raw=%u  index=%.2f  alert=%s\n", uv.raw, uv.uv_index, uv.is_alert ? "YES" : "NO");
+  printf("[Sensors] Water:    raw=%u  percent=%.1f%%\n", water.raw, water.percent);
+
+  // After reading sensors, check plant conditions to determine if watering is needed
+  ctx.scheduler->schedule(Tasks::check_plant_conditions);
+}
+
 /**
  * This task checks the current sensor readings and determines 
  * if the plant needs watering. If the soil moisture is below the 
