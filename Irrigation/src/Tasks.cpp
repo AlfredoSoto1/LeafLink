@@ -1,23 +1,6 @@
 #include "Tasks.hpp"
 #include "TaskScheduler.hpp"
-#include <cstdarg>
-#include <stdio.h>
 #include "pico/stdlib.h"
-
-void push_notification(AppContext &ctx, const char *message) {
-  ctx.plant_status.write_message(message);
-}
-
-void push_notificationf(AppContext &ctx, const char *format, ...) {
-  char buffer[PlantStatus::MAX_MESSAGE_LENGTH] = {};
-
-  va_list args;
-  va_start(args, format);
-  vsnprintf(buffer, sizeof(buffer), format, args);
-  va_end(args);
-
-  push_notification(ctx, buffer);
-}
 
 void Tasks::load_config_from_flash(AppContext &ctx) {
   if (ctx.config.load()) {
@@ -72,7 +55,7 @@ void Tasks::apply_config_to_sensors(AppContext &ctx) {
 void Tasks::read_power(AppContext &ctx) {
   auto power = ctx.power.read(ctx.adc);
   if (power.error) {
-    printf("[Sensors] Power sensor read error!\n");
+    ctx.plant_status.write_message(ErrorType::SensorReadFailed, "Error: Power sensor read failed.");
     ctx.scheduler->schedule(Tasks::notify_error);
     return;
   }
@@ -86,31 +69,46 @@ void Tasks::read_power(AppContext &ctx) {
          power.raw, (static_cast<float>(power.raw) / 4095.0f) * 3.3f, power.voltage, power.percent);
 }
 
+/**
+ * This task reads all sensors and updates the shared plant status. It also checks
+ * for any alert conditions (like low moisture or high UV) and schedules further tasks as needed.
+ */
 void Tasks::read_sensors(AppContext &ctx) {
+  PlantStatus::StatusData& status = ctx.plant_status.write_status();
+
   auto moisture = ctx.moisture.read(ctx.adc);
   if (moisture.error) {
-    printf("[Sensors] Moisture sensor read error!\n");
+    ctx.plant_status.write_message(ErrorType::SensorReadFailed, "Moisture sensor read failed.");
     ctx.scheduler->schedule(Tasks::notify_error);
     return;
   }
 
   auto uv = ctx.uv.read(ctx.adc);
   if (uv.error) {
-    printf("[Sensors] UV sensor read error!\n");
+    ctx.plant_status.write_message(ErrorType::SensorReadFailed, "UV sensor read failed.");
     ctx.scheduler->schedule(Tasks::notify_error);
     return;
   }
 
   auto water = ctx.water.read(ctx.adc);
   if (water.error) {
-    printf("[Sensors] Water level sensor read error!\n");
+    ctx.plant_status.write_message(ErrorType::SensorReadFailed, "Water level sensor read failed.");
     ctx.scheduler->schedule(Tasks::notify_error);
     return;
   }
 
+  // Update the shared plant status with the latest sensor readings
+  status.sampled_at_ms = to_ms_since_boot(get_absolute_time());
+  status.moisture_percent = moisture.percent;
+  status.moisture_needs_water = moisture.needs_water;
+  status.uv_index = uv.uv_index;
+  status.uv_alert = uv.is_alert;
+  status.water_percent = water.percent;
+  status.water_ounces_remaining = water.ounces_remaining;
+
   printf("[Sensors] Moisture: raw=%u  percent=%.1f%%\n", moisture.raw, moisture.percent);
   printf("[Sensors] UV:       raw=%u  index=%.2f  alert=%s\n", uv.raw, uv.uv_index, uv.is_alert ? "YES" : "NO");
-  printf("[Sensors] Water:    raw=%u  percent=%.1f%%\n", water.raw, water.percent);
+  printf("[Sensors] Water:    raw=%u  percent=%.1f%%  ounces remaining=%.1f\n", water.raw, water.percent, water.ounces_remaining);
 
   // After reading sensors, check plant conditions to determine if watering is needed
   ctx.scheduler->schedule(Tasks::check_plant_conditions);
@@ -124,39 +122,15 @@ void Tasks::read_sensors(AppContext &ctx) {
 void Tasks::check_plant_conditions(AppContext &ctx) {
   PlantStatus::StatusData& status = ctx.plant_status.write_status();
   
-  // Read current sensor values
-  auto moisture = ctx.moisture.read(ctx.adc);
-  if (moisture.error) {
-    printf("[Sensors] Moisture sensor read error!\n");
-    ctx.scheduler->schedule(Tasks::notify_error);
-    return;
-  }
-
-  // Update the shared plant status with the latest moisture readings
-  status.moisture_percent = moisture.percent;
-  status.moisture_needs_water = moisture.needs_water;
-
   // Check if watering is needed based on soil moisture
-  if (moisture.needs_water) {
-    printf("[Plant] Soil moisture low (%.1f%%). Scheduling pump control task.\n", moisture.percent);
+  if (status.moisture_needs_water) {
+    printf("[Plant] Soil moisture low (%.1f%%). Scheduling pump control task.\n", status.moisture_percent);
     ctx.scheduler->schedule(Tasks::control_pump);
   }
 
-  // Check UV sensor for alerts
-  auto uv = ctx.uv.read(ctx.adc);
-  if (uv.error) {
-    printf("[Sensors] UV sensor read error!\n");
-    ctx.scheduler->schedule(Tasks::notify_error);
-    return;
-  }
-
-  // Update the shared plant status with the latest UV readings
-  status.uv_index = uv.uv_index;
-  status.uv_alert = uv.is_alert;
-
   // If UV index is above alert threshold, schedule a notification task
-  if (uv.is_alert) {
-    printf("[Plant] UV index high (%.2f). Scheduling status update task.\n", uv.uv_index);
+  if (status.uv_alert) {
+    printf("[Plant] UV index high (%.2f). Scheduling status update task.\n", status.uv_index);
     ctx.scheduler->schedule(Tasks::notify_status);
   }
 }
@@ -167,10 +141,22 @@ void Tasks::control_pump(AppContext &ctx) {
 }
 
 void Tasks::notify_error(AppContext &ctx) {
+  // Read the latest message from plant status and send it over WiFi or log it
+  const PlantStatus::MessageData &message = ctx.plant_status.message();
+  printf("[Notification] Error: %s\n", message.text);
+
+  // Clear the message after notifying
+  ctx.plant_status.clear(); 
 }
 
 void Tasks::notify_status(AppContext &ctx) {
-  printf("[Wifi] Sending plant status...\n");
+  // Read the latest status from plant status and send it over WiFi or log it
+  const PlantStatus::StatusData &status = ctx.plant_status.status();
+  printf("[Notification] Status update: Moisture=%.1f%%, UV Index=%.2f, Water Remaining=%.1f oz\n",
+         status.moisture_percent, status.uv_index, status.water_ounces_remaining);
+
+  // Clear the status after notifying
+  ctx.plant_status.clear();
 }
 
   //   context.wifi.power_on();

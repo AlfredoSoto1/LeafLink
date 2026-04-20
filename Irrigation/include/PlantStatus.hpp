@@ -2,10 +2,20 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdarg>
+#include <stdio.h>
 
 enum class PlantStatusKind : uint8_t {
   Status = 0,
   Message = 1,
+};
+
+enum class ErrorType : uint8_t {
+  None = 0,
+  SensorReadFailed = 1,
+  PumpControlFailed = 2,
+  WifiError = 3,
+  ConfigError = 4,
 };
 
 // ---------------------------------------------------------------------------
@@ -34,6 +44,7 @@ struct PlantStatus {
   struct MessageData {
     bool truncated;
     uint8_t length;
+    ErrorType error;
     char text[MAX_MESSAGE_LENGTH];
   };
 
@@ -54,8 +65,15 @@ struct PlantStatus {
   const PlantStatusKind kind() const;
 
   StatusData& write_status();
-  void write_message(const char *message);
-  void write_message(const char *message, size_t length);
+  void write_message(ErrorType error, const char *message);
+  void write_messagef(ErrorType error, const char *format, ...) {
+    char buffer[MAX_MESSAGE_LENGTH] = {};
+    va_list args;
+    va_start(args, format);
+    vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+    write_message(error, buffer);
+  }
 
 private:
   static void fill_message(MessageData &record, const char *message,

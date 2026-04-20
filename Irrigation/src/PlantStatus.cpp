@@ -48,7 +48,7 @@ void PlantStatus::fill_message(MessageData &record, const char *message,
   record.truncated = length >= MAX_MESSAGE_LENGTH;
 }
 
-void PlantStatus::write_message(const char *message) {
+void PlantStatus::write_message(ErrorType error, const char *message) {
   size_t length = 0;
 
   // Calculate the length of the message up to the null terminator
@@ -58,12 +58,8 @@ void PlantStatus::write_message(const char *message) {
     }
   }
 
-  // Delegate to the length-aware version of write_message
-  write_message(message, length);
-}
-
-void PlantStatus::write_message(const char *message, size_t length) {
   fill_message(m_payload.message, message, length);
+  m_payload.message.error = error;
   m_kind = PlantStatusKind::Message;
   m_dirty = true;
 }
