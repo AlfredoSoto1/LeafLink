@@ -9,6 +9,7 @@
 #include "SystemConfig.hpp"
 #include "ADCController.hpp"
 #include "PlantStatus.hpp"
+#include "TemperatureSensor.hpp"
 
 class TaskScheduler;
 
@@ -19,6 +20,7 @@ struct AppContext {
   SoilMoistureSensor moisture;
   UVSensor           uv;
   WaterLevelSensor   water;
+  TemperatureSensor  temperature;
   PumpController     pump;
   WifiModule         wifi;
   PowerSensor        power;

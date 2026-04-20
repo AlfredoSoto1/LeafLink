@@ -12,6 +12,7 @@ ADCController::ADCController(const ADCEnableChannel* channels, size_t count)
 
 void ADCController::init() {
   adc_init();
+  adc_set_temp_sensor_enabled(false);
 
   for (size_t i = 0; i < count; ++i) {
     gpio_init(channels[i]);
@@ -21,6 +22,7 @@ void ADCController::init() {
 
   // ADC inputs are shared.
   adc_gpio_init(ADC_PIN);
+  adc_select_input(0);
 }
 
 RawResult ADCController::read_raw() {
@@ -31,6 +33,18 @@ RawResult ADCController::read_raw() {
 
   adc_select_input(0);
   const uint16_t raw = adc_read();
+  return { raw, true };
+}
+
+RawResult ADCController::read_temperature_raw() {
+  adc_set_temp_sensor_enabled(true);
+  adc_select_input(4);
+
+  const uint16_t raw = adc_read();
+
+  adc_set_temp_sensor_enabled(false);
+  adc_select_input(0);
+
   return { raw, true };
 }
 

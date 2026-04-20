@@ -37,6 +37,7 @@ int main() {
     .moisture  = SoilMoistureSensor(16, 500, 30.0f),
     .uv        = UVSensor(16, 500, 6.0f),
     .water     = WaterLevelSensor(8, 500, 128.0f),  // 128 oz = 1 gallon default
+    .temperature = TemperatureSensor(8),
     .pump      = PumpController(),
     .wifi      = WifiModule(uart0),
     // .power     = PowerSensor(8, 500, 0.5f, 3.0f, 4.2f),
@@ -56,6 +57,7 @@ int main() {
   context.uv.init();
   context.water.calibrate(0, 3500);
   context.water.init();
+  context.temperature.init();
   context.power.init();
   // context.pump.init();
 

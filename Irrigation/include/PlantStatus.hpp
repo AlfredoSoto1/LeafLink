@@ -37,6 +37,8 @@ struct PlantStatus {
     float water_percent;
     float water_ounces_remaining;
 
+    float temperature_celsius;
+
     float power_voltage;
     float power_percent;
   };

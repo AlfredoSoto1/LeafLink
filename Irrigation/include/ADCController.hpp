@@ -46,6 +46,7 @@ public:
   // Read raw 12-bit value (0-4095) from sensor at index idx
   // -----------------------------------------------------------------------
   RawResult read_raw();
+  RawResult read_temperature_raw();
 
   size_t get_count() const;
 
