@@ -12,9 +12,6 @@ UVSensor::UVSensor(uint sample_count, uint32_t warmup_ms, float alert_threshold)
     : m_sample_count(sample_count),
       m_warmup_ms(warmup_ms),
       m_alert_threshold(alert_threshold),
-      m_lastRaw(0),
-      m_lastUvIndex(0.0f),
-      m_lastAlert(false),
       m_initialized(false) {}
 
 void UVSensor::init() {
@@ -42,27 +39,11 @@ UVSensor::Reading UVSensor::read(ADCController &adc) {
   const float    uv_index = raw_to_uv_index(raw);
   const bool     alert    = uv_index >= m_alert_threshold;
 
-  m_lastRaw     = raw;
-  m_lastUvIndex = uv_index;
-  m_lastAlert   = alert;
-
   return Reading{ 
     .raw = raw, 
     .uv_index = uv_index, 
     .is_alert = alert 
   };
-}
-
-uint16_t UVSensor::get_raw() const {
-  return m_lastRaw;
-}
-
-float UVSensor::get_uv_index() const {
-  return m_lastUvIndex;
-}
-
-bool UVSensor::is_alert() const {
-  return m_lastAlert;
 }
 
 float UVSensor::raw_to_uv_index(uint16_t raw) const {

@@ -32,10 +32,6 @@ WaterLevelSensor::Reading WaterLevelSensor::read(ADCController &adc) {
   const float    pct    = raw_to_percent(raw);
   const float    oz     = (pct / 100.0f) * m_tank_capacity_oz;
 
-  m_last_raw     = raw;
-  m_last_percent = pct;
-  m_last_oz      = oz;
-
   return Reading{ .raw = raw, .percent = pct, .ounces_remaining = oz };
 }
 
@@ -55,18 +51,6 @@ void WaterLevelSensor::set_config(const SystemConfig &cfg) {
   m_warmup_ms         = cfg.water_warmup_ms;
   m_tank_capacity_oz  = static_cast<float>(cfg.water_tank_oz);
   calibrate(cfg.water_dry_cal, cfg.water_wet_cal);
-}
-
-uint16_t WaterLevelSensor::get_raw() const { 
-  return m_last_raw;
-}
-
-float WaterLevelSensor::get_percent() const { 
-  return m_last_percent; 
-}
-
-float WaterLevelSensor::get_ounces_remaining() const { 
-  return m_last_oz;      
 }
 
 float WaterLevelSensor::raw_to_percent(uint16_t raw) const {

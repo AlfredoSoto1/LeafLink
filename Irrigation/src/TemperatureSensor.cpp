@@ -24,23 +24,7 @@ TemperatureSensor::Reading TemperatureSensor::read(ADCController &adc) {
   const float voltage = raw_to_voltage(raw);
   const float celsius = voltage_to_celsius(voltage);
 
-  m_last_raw = raw;
-  m_last_voltage = voltage;
-  m_last_celsius = celsius;
-
   return Reading{ .raw = raw, .voltage = voltage, .celsius = celsius };
-}
-
-uint16_t TemperatureSensor::get_raw() const {
-  return m_last_raw;
-}
-
-float TemperatureSensor::get_voltage() const {
-  return m_last_voltage;
-}
-
-float TemperatureSensor::get_celsius() const {
-  return m_last_celsius;
 }
 
 float TemperatureSensor::raw_to_voltage(uint16_t raw) const {

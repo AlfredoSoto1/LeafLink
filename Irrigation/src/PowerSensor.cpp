@@ -43,10 +43,6 @@ PowerSensor::Reading PowerSensor::read(ADCController &adc) {
     percent = ((voltage - m_v_min) / (m_v_max - m_v_min)) * 100.0f;
   }
 
-  m_last_raw     = raw;
-  m_last_voltage = voltage;
-  m_last_percent = percent;
-
   return Reading{ .raw = raw, .voltage = voltage, .percent = percent };
 }
 
@@ -55,18 +51,6 @@ void PowerSensor::set_config(const SystemConfig &cfg) {
   m_v_min         = cfg.power_v_min;
   m_v_max         = cfg.power_v_max;
   m_sample_count  = cfg.power_sample_count;
-}
-
-uint16_t PowerSensor::get_raw() const { 
-  return m_last_raw;  
-}
-
-float PowerSensor::get_voltage() const { 
-  return m_last_voltage; 
-}
-
-float PowerSensor::get_percent() const { 
-  return m_last_percent; 
 }
 
 float PowerSensor::raw_to_voltage(uint16_t raw) const {

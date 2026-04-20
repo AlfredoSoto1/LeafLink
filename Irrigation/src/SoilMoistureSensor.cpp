@@ -6,9 +6,6 @@ SoilMoistureSensor::SoilMoistureSensor(uint sample_count, uint32_t warmup_ms, fl
       m_threshold_percent(threshold_percent),
       m_dryCal(3000),
       m_wetCal(1500),
-      m_lastRaw(0),
-      m_lastPercent(0.0f),
-      m_lastNeedsWater(true),
       m_initialized(false) {}
 
 void SoilMoistureSensor::init() {
@@ -50,27 +47,11 @@ SoilMoistureSensor::Reading SoilMoistureSensor::read(ADCController &adc) {
   const float percent = raw_to_percent(raw);
   const bool water = percent < m_threshold_percent;
 
-  m_lastRaw = raw;
-  m_lastPercent = percent;
-  m_lastNeedsWater = water;
-
   return Reading{
-    .raw = m_lastRaw,
-    .percent = m_lastPercent,
-    .needs_water = m_lastNeedsWater
+    .raw = raw,
+    .percent = percent,
+    .needs_water = water
   };
-}
-
-uint16_t SoilMoistureSensor::get_raw() const { 
-  return m_lastRaw; 
-}
-
-float SoilMoistureSensor::get_percent() const { 
-  return m_lastPercent; 
-}
-
-bool SoilMoistureSensor::needs_water() const { 
-  return m_lastNeedsWater; 
 }
 
 float SoilMoistureSensor::raw_to_percent(uint16_t raw) const {

@@ -30,10 +30,6 @@ public:
   Reading read(ADCController &adc);
   void set_config(const SystemConfig &cfg);
 
-  uint16_t get_raw()        const;
-  float    get_uv_index()   const;
-  bool     is_alert()       const;
-
 private:
   float raw_to_uv_index(uint16_t raw) const;
   void  ensure_initialized() const;
@@ -42,9 +38,6 @@ private:
   uint     m_sample_count;
   uint32_t m_warmup_ms;
   float    m_alert_threshold;
-  uint16_t m_lastRaw;
-  float    m_lastUvIndex;
-  bool     m_lastAlert;
   bool     m_initialized;
 };
 

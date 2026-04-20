@@ -31,10 +31,6 @@ public:
   void calibrate(uint16_t dry_val, uint16_t wet_val);
   void set_config(const SystemConfig &cfg);
 
-  uint16_t get_raw()        const;
-  float    get_percent()    const;
-  bool     needs_water()    const;
-
 private:
   float raw_to_percent(uint16_t raw) const;
   void ensure_initialized() const;
@@ -44,11 +40,6 @@ private:
   uint32_t m_warmup_ms;
   uint16_t m_dryCal;
   uint16_t m_wetCal;
-  uint16_t m_lastRaw;
-  
-  float m_lastPercent;
   float m_threshold_percent;
-  
   bool m_initialized;
-  bool m_lastNeedsWater;
 };

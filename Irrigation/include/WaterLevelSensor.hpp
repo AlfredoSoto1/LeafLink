@@ -37,10 +37,6 @@ public:
   void calibrate(uint16_t dry_val, uint16_t wet_val);
   void set_config(const SystemConfig &cfg);
 
-  uint16_t get_raw()              const;
-  float    get_percent()          const;
-  float    get_ounces_remaining() const;
-
 private:
   float raw_to_percent(uint16_t raw) const;
   void  ensure_initialized() const;
@@ -51,9 +47,5 @@ private:
   float    m_tank_capacity_oz;
   uint16_t m_dry_cal;
   uint16_t m_wet_cal;
-
-  uint16_t m_last_raw     = 0;
-  float    m_last_percent = 0.0f;
-  float    m_last_oz      = 0.0f;
   bool     m_initialized  = false;
 };

@@ -40,10 +40,6 @@ public:
   Reading read(ADCController &adc);
   void set_config(const SystemConfig &cfg);
 
-  uint16_t get_raw()        const;
-  float    get_voltage()    const;
-  float    get_percent()    const;
-
 private:
   float raw_to_voltage(uint16_t raw) const;
   void  ensure_initialized() const;
@@ -54,10 +50,6 @@ private:
   float    m_divider_ratio;
   float    m_v_min;
   float    m_v_max;
-
-  uint16_t m_last_raw     = 0;
-  float    m_last_voltage = 0.0f;
-  float    m_last_percent = 0.0f;
   bool     m_initialized  = false;
 };
 
