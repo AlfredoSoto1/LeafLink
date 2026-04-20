@@ -1,8 +1,8 @@
-#include "PowerModule.hpp"
+#include "PowerSensor.hpp"
 
 #include <stdio.h>
 
-PowerModule::PowerModule(uint sample_count, uint32_t warmup_ms,
+PowerSensor::PowerSensor(uint sample_count, uint32_t warmup_ms,
                          float divider_ratio, float v_min, float v_max)
     : m_sample_count(sample_count),
       m_warmup_ms(warmup_ms),
@@ -10,11 +10,11 @@ PowerModule::PowerModule(uint sample_count, uint32_t warmup_ms,
       m_v_min(v_min),
       m_v_max(v_max) {}
 
-void PowerModule::init() {
+void PowerSensor::init() {
   m_initialized = true;
 }
 
-PowerModule::Reading PowerModule::read(ADCController &adc) {
+PowerSensor::Reading PowerSensor::read(ADCController &adc) {
   ensure_initialized();
   adc.enable_only(ADC_SELECT, m_warmup_ms);
 
@@ -50,31 +50,31 @@ PowerModule::Reading PowerModule::read(ADCController &adc) {
   return Reading{ .raw = raw, .voltage = voltage, .percent = percent };
 }
 
-void PowerModule::set_config(const SystemConfig &cfg) {
+void PowerSensor::set_config(const SystemConfig &cfg) {
   m_divider_ratio = cfg.power_divider_ratio;
   m_v_min         = cfg.power_v_min;
   m_v_max         = cfg.power_v_max;
   m_sample_count  = cfg.power_sample_count;
 }
 
-uint16_t PowerModule::get_raw() const { 
+uint16_t PowerSensor::get_raw() const { 
   return m_last_raw;  
 }
 
-float PowerModule::get_voltage() const { 
+float PowerSensor::get_voltage() const { 
   return m_last_voltage; 
 }
 
-float PowerModule::get_percent() const { 
+float PowerSensor::get_percent() const { 
   return m_last_percent; 
 }
 
-float PowerModule::raw_to_voltage(uint16_t raw) const {
+float PowerSensor::raw_to_voltage(uint16_t raw) const {
   const float v_adc = (static_cast<float>(raw) / 4095.0f) * 3.3f;
   return v_adc / m_divider_ratio;
 }
 
-void PowerModule::ensure_initialized() const {
+void PowerSensor::ensure_initialized() const {
   if (!m_initialized) {
     panic("PowerModule used before init()");
   }

@@ -16,7 +16,7 @@
 // V_adc = V_in * R2/(R1+R2)   →   V_in = V_adc / divider_ratio
 // ---------------------------------------------------------------------------
 
-class PowerModule {
+class PowerSensor {
 public:
   static constexpr uint POWER_PIN = 20;
   static constexpr uint ADC_SELECT = 0;
@@ -31,9 +31,9 @@ public:
 public:
   // divider_ratio = R2 / (R1 + R2)
   // v_min / v_max define the 0 % / 100 % voltage points
-  PowerModule(uint sample_count, uint32_t warmup_ms,
+  PowerSensor(uint sample_count, uint32_t warmup_ms,
               float divider_ratio, float v_min, float v_max);
-  ~PowerModule() = default;
+  ~PowerSensor() = default;
 
   void init();
 

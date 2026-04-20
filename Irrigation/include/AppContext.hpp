@@ -5,7 +5,7 @@
 #include "WaterLevelSensor.hpp"
 #include "Pump.hpp"
 #include "Wifi.hpp"
-#include "PowerModule.hpp"
+#include "PowerSensor.hpp"
 #include "SystemConfig.hpp"
 #include "ADCController.hpp"
 
@@ -20,7 +20,7 @@ struct AppContext {
   WaterLevelSensor   water;
   Pump               pump;
   WifiModule         wifi;
-  PowerModule        power;
+  PowerSensor        power;
   ConfigManager      config;
   ADCController      adc; 
   TaskScheduler*     scheduler;

@@ -94,19 +94,51 @@ void Tasks::read_sensors(AppContext &ctx) {
   ctx.scheduler->schedule(Tasks::read_sensors);
 }
 
-static uint16_t just_a_counter = 0;
-
 void Tasks::read_power(AppContext &ctx) {
-  // printf("[Power] Reading power status... (counter=%u)\n", just_a_counter);
+  auto power = ctx.power.read(ctx.adc);
+  if (power.error) {
+    printf("[Sensors] Power sensor read error!\n");
+    ctx.scheduler->schedule(Tasks::notify_error);
+    return;
+  }
 
-  // auto pwr = ctx.power.read(ctx.adc);
+  printf("[Sensors] Power:    raw=%u  ratio=%.2f  voltage=%.2fV  battery=%.1f%%\n",
+         power.raw, (static_cast<float>(power.raw) / 4095.0f) * 3.3f, power.voltage, power.percent);
+}
 
-  // printf("[Power]    raw=%u  voltage=%.2fV  battery=%.1f%%\n",
-  //        pwr.raw, pwr.voltage, pwr.percent);
+/**
+ * This task checks the current sensor readings and determines 
+ * if the plant needs watering. If the soil moisture is below the 
+ * configured threshold, it schedules the pump control task.
+ */
+void Tasks::check_plant_conditions(AppContext &ctx) {
+  // Read current sensor values
+  auto moisture = ctx.moisture.read(ctx.adc);
+  if (moisture.error) {
+    printf("[Sensors] Moisture sensor read error!\n");
+    ctx.scheduler->schedule(Tasks::notify_error);
+    return;
+  }
+  
+  // Check if watering is needed based on soil moisture
+  if (moisture.needs_water) {
+    printf("[Plant] Soil moisture low (%.1f%%). Scheduling pump control task.\n", moisture.percent);
+    ctx.scheduler->schedule(Tasks::control_pump);
+  }
 
-  // sleep_ms(1000);
-  // ctx.scheduler->schedule(Tasks::read_power);
-  // just_a_counter++;
+  // Check UV sensor for alerts
+  auto uv = ctx.uv.read(ctx.adc);
+  if (uv.error) {
+    printf("[Sensors] UV sensor read error!\n");
+    ctx.scheduler->schedule(Tasks::notify_error);
+    return;
+  }
+
+  // If UV index is above alert threshold, schedule a notification task
+  if (uv.is_alert) {
+    printf("[Plant] UV index high (%.2f). Scheduling status update task.\n", uv.uv_index);
+    ctx.scheduler->schedule(Tasks::notify_status);
+  }
 }
 
 void Tasks::control_pump(AppContext &ctx) {
@@ -114,7 +146,10 @@ void Tasks::control_pump(AppContext &ctx) {
   ctx.pump.run_for();
 }
 
-void Tasks::send_plant_status(AppContext &ctx) {
+void Tasks::notify_error(AppContext &ctx) {
+}
+
+void Tasks::notify_status(AppContext &ctx) {
   printf("[Wifi] Sending plant status...\n");
 }
 

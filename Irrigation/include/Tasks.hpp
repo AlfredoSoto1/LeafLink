@@ -10,8 +10,11 @@ namespace Tasks {
   void request_config_from_master(AppContext &ctx);
   void apply_config_to_sensors(AppContext &ctx);
 
-  void read_sensors(AppContext &ctx);
   void read_power(AppContext &ctx);
+  void read_sensors(AppContext &ctx);
+  void check_plant_conditions(AppContext &ctx);
   void control_pump(AppContext &ctx);
-  void send_plant_status(AppContext &ctx);
+  
+  void notify_error(AppContext &ctx);
+  void notify_status(AppContext &ctx);
 }

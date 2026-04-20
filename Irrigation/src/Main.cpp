@@ -27,7 +27,7 @@ int main() {
   // ADC channels define the enable/power GPIO for each sensor slot. 
   // For this the ADC input pin is shared.
   const ADCEnableChannel adc_enable_channels[] = { 
-    PowerModule::POWER_PIN,         // ADC_SELECT = 0
+    PowerSensor::POWER_PIN,         // ADC_SELECT = 0
     SoilMoistureSensor::POWER_PIN,  // ADC_SELECT = 1
     WaterLevelSensor::POWER_PIN,    // ADC_SELECT = 3
     UVSensor::POWER_PIN,            // ADC_SELECT = 2
@@ -39,8 +39,8 @@ int main() {
     .water     = WaterLevelSensor(8, 500, 128.0f),  // 128 oz = 1 gallon default
     .pump      = Pump(),
     .wifi      = WifiModule(uart0),
-    // .power     = PowerModule(8, 500, 0.5f, 3.0f, 4.2f),
-    .power     = PowerModule(8, 500, 0.5f, 0.0f, 3.3f),
+    // .power     = PowerSensor(8, 500, 0.5f, 3.0f, 4.2f),
+    .power     = PowerSensor(8, 500, 0.5f, 0.0f, 3.3f),
     .config    = ConfigManager(),
     .adc       = ADCController(adc_enable_channels, 4),
     .scheduler = &scheduler
@@ -98,8 +98,8 @@ int main() {
       if (task != nullptr) {
         gpio_put(LED_PIN, 1);
         task(context);
-        sleep_ms(500);
         gpio_put(LED_PIN, 0);
+        sleep_ms(500);
       }
     }
 
