@@ -1,7 +1,8 @@
 #pragma once
 
 #include <cstddef>
-#include "AppContext.hpp"
+
+struct AppContext;
 
 class TaskScheduler {
 public:
@@ -21,7 +22,7 @@ public:
 
 private:
   TaskFunc queue[MAX_TASKS];
-  uint head = 0;
-  uint tail = 0;
-  uint count = 0;
+  unsigned int head = 0;
+  unsigned int tail = 0;
+  unsigned int count = 0;
 };
