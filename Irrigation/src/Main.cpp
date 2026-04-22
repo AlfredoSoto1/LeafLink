@@ -11,8 +11,14 @@
 static volatile bool g_timer_fired = false;
 
 static bool timer_callback(repeating_timer_t *rt) {
-    g_timer_fired = true;
-    return true; // keep repeating
+  g_timer_fired = true;
+  return true;
+}
+
+static void toggle_led() {
+  gpio_put(PICO_DEFAULT_LED_PIN, 1);
+  sleep_ms(500);
+  gpio_put(PICO_DEFAULT_LED_PIN, 0);
 }
 
 int main() {
@@ -65,55 +71,44 @@ int main() {
   // 3 — Schedule startup task chain
   // -------------------------------------------------------------------------
   // context.scheduler->schedule(Tasks::load_config_from_flash);
-  context.scheduler->schedule(Tasks::read_sensors);
-  // context.scheduler->schedule(Tasks::read_power);
+  // context.scheduler->schedule(Tasks::read_sensors);
+  context.scheduler->schedule(Tasks::read_power);
 
   // -------------------------------------------------------------------------
   // 4 — Set up LED and repeating 60-second timer
   // -------------------------------------------------------------------------
-  const uint LED_PIN = PICO_DEFAULT_LED_PIN;
-  gpio_init(LED_PIN);
-  gpio_set_dir(LED_PIN, GPIO_OUT);
+  gpio_init(PICO_DEFAULT_LED_PIN);
+  gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
 
-  // repeating_timer_t timer;
-  // Negative value = period between END of callback and next call.
-  // Use -60000 ms so the timer fires every 60 seconds regardless of
-  // callback duration. Swap to 60000 if you want wall-clock alignment.
+  repeating_timer_t timer;
   // add_repeating_timer_ms(-60000, timer_callback, nullptr, &timer);
+  add_repeating_timer_ms(-10000, timer_callback, nullptr, &timer);
 
   // -------------------------------------------------------------------------
   // Main loop — sleep until the timer fires, then drain the task queue
   // -------------------------------------------------------------------------
   while (true) {
     // Deep sleep: CPU halts, only wakes on interrupt (timer IRQ, etc.)
-    // __wfi();
+    __wfi();
 
     // go back to sleep if the timer wasn't the reason we woke up (spurious wake, or other IRQ)
-    // if (!g_timer_fired) {
-    //   continue;
-    // }
-    // g_timer_fired = false;
+    if (!g_timer_fired) {
+      continue;
+    }
+    g_timer_fired = false;
 
     // Drain the entire task queue before returning to sleep
     while (!context.scheduler->empty()) {
       auto task = context.scheduler->pop();
       if (task != nullptr) {
-        gpio_put(LED_PIN, 1);
         task(context);
-        gpio_put(LED_PIN, 0);
-        sleep_ms(500);
+        toggle_led();
       }
     }
 
-    // If the queue is empty, we can go back to sleep immediately. 
-    // If not, we'll process remaining tasks on the next timer tick.
-    // if (context.scheduler->empty()) {
-    //   context.scheduler->schedule(Tasks::read_sensors);
-    //   context.scheduler->schedule(Tasks::read_power);
-    //   printf("[Main] All tasks complete. Going back to sleep...\n");
-    // } else {
-    //   printf("[Main] Tasks still pending. Will process on next timer tick.\n");
-    // }
+    // After processing all tasks, schedule the next sensor read for the next cycle
+    // context.scheduler->schedule(Tasks::read_sensors);
+    context.scheduler->schedule(Tasks::read_power);
   }
 
   return 0;
