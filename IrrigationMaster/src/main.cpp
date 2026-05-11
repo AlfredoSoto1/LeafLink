@@ -17,6 +17,9 @@
  *   me-no-dev/ESPAsyncWebServer
  *   bblanchon/ArduinoJson @ ^6
  */
+//connect to the ESPWIFI : LeafLink-AP
+//using this password:leaflink123
+//then open webpage: http://192.168.4.1
 
 #include <Arduino.h>
 #include <WiFi.h>
