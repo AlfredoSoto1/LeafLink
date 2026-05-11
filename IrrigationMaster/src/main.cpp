@@ -143,6 +143,11 @@ extern const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(
   .node-btn{background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:.72rem;padding:.3rem .7rem;cursor:pointer;transition:all .2s}
   .node-btn:hover{border-color:var(--green);color:var(--green)}
   .node-btn.remove:hover{border-color:var(--red);color:var(--red)}
+  .plant-node.selected{border-color:var(--green);box-shadow:0 0 0 2px rgba(74,222,128,0.3);}
+  .node-info-bar{width:100%;max-width:1000px;background:var(--surface);border:1px solid var(--border);
+                 border-radius:var(--r);padding:.8rem 1.2rem;margin-bottom:1rem;
+                 font-size:.82rem;color:var(--muted);display:flex;align-items:center;gap:8px;}
+  .node-info-bar strong{color:var(--green);}
   .add-node-btn{background:transparent;border:2px dashed var(--border);border-radius:var(--r);padding:1.2rem 1.8rem;min-width:140px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:all .2s;color:var(--muted);font-size:.82rem}
   .add-node-btn:hover{border-color:var(--green);color:var(--green);background:rgba(74,222,128,0.04)}
   .add-node-btn .plus{font-size:1.6rem;line-height:1;font-weight:300}
@@ -191,6 +196,10 @@ extern const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(
     <span id="uptime-label">Uptime: <strong>0s</strong></span>
     <div class="separator"></div>
     <span id="log-toggle" onclick="toggleLog()" style="cursor:pointer;user-select:none;" title="Toggle log">⚙️</span>
+  </div>
+
+  <div class="node-info-bar" id="node-info-bar">
+    📊 Viewing: <strong id="viewing-node-label">No node selected — click a node below</strong>
   </div>
 
   <div id="log-wrapper" style="display:none;width:100%;max-width:1000px;margin-bottom:1.5rem;">
@@ -356,11 +365,28 @@ const PLANT_PROFILES = {
 
 let nodes = [];
 let activeNodeId = null;
+let selectedNodeId = null;
 
 function toggleLog() {
   const wrapper = document.getElementById('log-wrapper');
   const isHidden = wrapper.style.display === 'none';
   wrapper.style.display = isHidden ? 'block' : 'none';
+}
+
+function selectNode(nodeId) {
+  selectedNodeId = nodeId;
+  const node = nodes.find(n => n.id === nodeId);
+
+  // Update the info bar
+  const label = node && node.plant
+    ? `Node ${nodeId} — ${node.plant}`
+    : `Node ${nodeId} — No plant assigned`;
+  document.getElementById('viewing-node-label').textContent = label;
+
+  // Update selected highlight on cards
+  document.querySelectorAll('.plant-node').forEach(el => el.classList.remove('selected'));
+  const cards = document.querySelectorAll('.plant-node');
+  if (cards[nodeId - 1]) cards[nodeId - 1].classList.add('selected');
 }
 
 function renderNodes() {
@@ -369,7 +395,11 @@ function renderNodes() {
   nodes.forEach(node => {
     const profile = node.plant ? PLANT_PROFILES[node.plant] : null;
     const el = document.createElement('div');
-    el.className = 'plant-node';
+    el.className = 'plant-node' + (node.id === selectedNodeId ? ' selected' : '');
+    el.style.cursor = 'pointer';
+    el.addEventListener('click', (e) => {
+      if (!e.target.classList.contains('node-btn')) selectNode(node.id);
+    });    
     el.innerHTML = `
       <div class="plant-node-label">Plant Node ${node.id}</div>
       <div class="plant-node-name ${node.plant ? '' : 'empty'}">
