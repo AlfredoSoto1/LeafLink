@@ -283,6 +283,29 @@ extern const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(
       <label>Add my own plant</label>
       <input id="modal-custom" type="text" placeholder="e.g. Tomate, Ají Caballero…"/>
     </div>
+
+    <div id="custom-params" style="display:none; flex-direction:column; gap:.8rem;">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:.8rem;">
+        <div>
+          <label>Moisture min %</label>
+          <input id="custom-moist-min" type="number" min="0" max="100" placeholder="e.g. 40"/>
+        </div>
+        <div>
+          <label>Moisture max %</label>
+          <input id="custom-moist-max" type="number" min="0" max="100" placeholder="e.g. 65"/>
+        </div>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:.8rem;">
+        <div>
+          <label>UV max (0–11)</label>
+          <input id="custom-uv-max" type="number" min="0" max="11" placeholder="e.g. 5"/>
+        </div>
+        <div>
+          <label>Water every (days)</label>
+          <input id="custom-water-days" type="number" min="1" placeholder="e.g. 3"/>
+        </div>
+      </div>
+    </div>
     <div class="modal-footer">
       <button class="btn btn-cancel" onclick="closeModal()">Cancel</button>
       <button class="btn btn-confirm" onclick="confirmPlant()">Add Plant</button>
@@ -292,6 +315,21 @@ extern const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(
 
 
 <script>
+const PLANT_PROFILES = {
+  "Recao":           { moisture: [50, 70], uvMax: 3,  waterDays: 2  },
+  "Oregano Brujo":   { moisture: [30, 50], uvMax: 7,  waterDays: 5  },
+  "Oregano Regular": { moisture: [25, 45], uvMax: 9,  waterDays: 5  },
+  "Cilantro":        { moisture: [40, 60], uvMax: 4,  waterDays: 2  },
+  "Romero":          { moisture: [20, 40], uvMax: 10, waterDays: 7  },
+  "Albahaca":        { moisture: [40, 60], uvMax: 8,  waterDays: 2  },
+  "Ruda":            { moisture: [20, 40], uvMax: 10, waterDays: 7  },
+  "Yerba Buena":     { moisture: [50, 70], uvMax: 5,  waterDays: 2  },
+  "Hoja de Menta":   { moisture: [50, 70], uvMax: 5,  waterDays: 2  },
+  "Gandules":        { moisture: [30, 50], uvMax: 10, waterDays: 5  },
+  "Sávila":          { moisture: [10, 25], uvMax: 10, waterDays: 14 },
+  "Laurel":          { moisture: [35, 55], uvMax: 8,  waterDays: 5  },
+};
+
 let nodes = [];
 let activeNodeId = null;
 
@@ -299,6 +337,7 @@ function renderNodes() {
   const container = document.getElementById('plant-nodes');
   container.innerHTML = '';
   nodes.forEach(node => {
+    const profile = node.plant ? PLANT_PROFILES[node.plant] : null;
     const el = document.createElement('div');
     el.className = 'plant-node';
     el.innerHTML = `
@@ -306,6 +345,12 @@ function renderNodes() {
       <div class="plant-node-name ${node.plant ? '' : 'empty'}">
         ${node.plant || 'No plant assigned'}
       </div>
+      ${profile ? `
+        <div style="font-size:.72rem;color:var(--muted);display:flex;flex-direction:column;gap:3px;margin-top:2px;">
+          <span>💧 Moisture: ${profile.moisture[0]}–${profile.moisture[1]}%</span>
+          <span>☀️ UV max: ${profile.uvMax}</span>
+          <span>🪣 Water every: ${profile.waterDays}d</span>
+        </div>` : ''}
       <div class="plant-node-actions">
         ${node.plant
           ? `<button class="node-btn" onclick="openModal(${node.id})">Change</button>
@@ -349,9 +394,30 @@ function confirmPlant() {
   const customVal  = document.getElementById('modal-custom').value.trim();
   const chosen     = customVal || libraryVal;
   if (!chosen) { document.getElementById('modal-library').focus(); return; }
+
+  if (customVal) {
+    const moistMin  = parseInt(document.getElementById('custom-moist-min').value) || 40;
+    const moistMax  = parseInt(document.getElementById('custom-moist-max').value) || 60;
+    const uvMax     = parseInt(document.getElementById('custom-uv-max').value)    || 6;
+    const waterDays = parseInt(document.getElementById('custom-water-days').value) || 3;
+    PLANT_PROFILES[customVal] = {
+      moisture: [moistMin, moistMax],
+      uvMax: uvMax,
+      waterDays: waterDays
+    };
+    const select = document.getElementById('modal-library');
+    if (![...select.options].some(o => o.value === customVal)) {
+      const opt = document.createElement('option');
+      opt.value = customVal;
+      opt.textContent = customVal;
+      select.appendChild(opt);
+    }
+  }
+
   const node = nodes.find(n => n.id === activeNodeId);
   if (node) node.plant = chosen;
   document.getElementById('modal-overlay').classList.remove('open');
+  document.getElementById('custom-params').style.display = 'none';
   renderNodes();
   activeNodeId = null;
 }
@@ -369,8 +435,13 @@ document.getElementById('modal-library').addEventListener('change', () => {
     document.getElementById('modal-custom').value = '';
 });
 document.getElementById('modal-custom').addEventListener('input', () => {
-  if (document.getElementById('modal-custom').value)
+  const val = document.getElementById('modal-custom').value;
+  if (val) {
     document.getElementById('modal-library').value = '';
+    document.getElementById('custom-params').style.display = 'flex';
+  } else {
+    document.getElementById('custom-params').style.display = 'none';
+  }
 });
 
 renderNodes();
