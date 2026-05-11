@@ -17,14 +17,13 @@
  *   me-no-dev/ESPAsyncWebServer
  *   bblanchon/ArduinoJson @ ^6
  */
-//connect to the ESPWIFI : LeafLink-AP
-//using this password:leaflink123
-//then open webpage: http://192.168.4.1
+// connect to the ESPWIFI : LeafLink-AP
+// using this password:leaflink123
+// then open webpage: http://192.168.4.1
 
 #include <Arduino.h>
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
-
 
 #include "AppContext.hpp"
 #include "EventQueue.hpp"
@@ -297,7 +296,7 @@ extern const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(
       </div>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:.8rem;">
         <div>
-          <label>UV max (0–11)</label>
+          <label>UV max (0-11)</label>
           <input id="custom-uv-max" type="number" min="0" max="11" placeholder="e.g. 5"/>
         </div>
         <div>
@@ -313,7 +312,28 @@ extern const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(
   </div>
 </div>
 
-
+<div class="modal-overlay" id="confirm-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">⚠️ Remove Plant</div>
+      <button class="modal-close" onclick="closeConfirm()">✕</button>
+    </div>
+    <div class="modal-node-label">
+      Type the plant name to confirm removal: <strong id="confirm-plant-name"></strong>
+    </div>
+    <div>
+      <label>Plant name</label>
+      <input id="confirm-input" type="text" placeholder="Type plant name here…"/>
+    </div>
+    <div id="confirm-error" style="display:none; color:var(--red); font-size:.78rem;">
+      ✕ Name doesn't match. Try again.
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-cancel" onclick="closeConfirm()">Cancel</button>
+      <button class="btn btn-confirm" style="background:var(--red);" onclick="confirmRemove()">Remove</button>
+    </div>
+  </div>
+</div>
 <script>
 const PLANT_PROFILES = {
   "Recao":           { moisture: [50, 70], uvMax: 3,  waterDays: 2  },
@@ -354,8 +374,8 @@ function renderNodes() {
       <div class="plant-node-actions">
         ${node.plant
           ? `<button class="node-btn" onclick="openModal(${node.id})">Change</button>
-             <button class="node-btn remove" onclick="removePlant(${node.id})">Remove</button>`
-          : `<button class="node-btn" onclick="openModal(${node.id})">Assign</button>`}
+             <button class="node-btn" onclick="editProfile(${node.id})">Edit</button>
+             <button class="node-btn remove" onclick="removePlant(${node.id})">Remove</button>`          : `<button class="node-btn" onclick="openModal(${node.id})">Assign</button>`}
       </div>`;
     container.appendChild(el);
   });
@@ -389,6 +409,25 @@ function closeModal() {
   activeNodeId = null;
 }
 
+function editProfile(nodeId) {
+  const node = nodes.find(n => n.id === nodeId);
+  if (!node || !node.plant) return;
+  const profile = PLANT_PROFILES[node.plant];
+  if (!profile) return;
+
+  document.getElementById('modal-node-name').textContent = `Node ${nodeId} — ${node.plant}`;
+  document.getElementById('modal-library').value = '';
+  document.getElementById('modal-custom').value = node.plant;
+  document.getElementById('custom-moist-min').value = profile.moisture[0];
+  document.getElementById('custom-moist-max').value = profile.moisture[1];
+  document.getElementById('custom-uv-max').value = profile.uvMax;
+  document.getElementById('custom-water-days').value = profile.waterDays;
+  document.getElementById('custom-params').style.display = 'flex';
+
+  activeNodeId = nodeId;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
 function confirmPlant() {
   const libraryVal = document.getElementById('modal-library').value;
   const customVal  = document.getElementById('modal-custom').value.trim();
@@ -415,16 +454,48 @@ function confirmPlant() {
   }
 
   const node = nodes.find(n => n.id === activeNodeId);
-  if (node) node.plant = chosen;
-  document.getElementById('modal-overlay').classList.remove('open');
+  if (node) {
+    if (node.plant !== chosen) node.plant = chosen;
+  }  document.getElementById('modal-overlay').classList.remove('open');
   document.getElementById('custom-params').style.display = 'none';
   renderNodes();
   activeNodeId = null;
 }
 
+let pendingRemoveNodeId = null;
+
 function removePlant(nodeId) {
   const node = nodes.find(n => n.id === nodeId);
-  if (node) { node.plant = null; renderNodes(); }
+  if (!node || !node.plant) return;
+  pendingRemoveNodeId = nodeId;
+  document.getElementById('confirm-plant-name').textContent = node.plant;
+  document.getElementById('confirm-input').value = '';
+  document.getElementById('confirm-error').style.display = 'none';
+  document.getElementById('confirm-overlay').classList.add('open');
+  document.getElementById('confirm-overlay').addEventListener('click', function(e) {
+    if (e.target === this) closeConfirm();
+  });
+}
+
+function closeConfirm() {
+  document.getElementById('confirm-overlay').classList.remove('open');
+  document.getElementById('confirm-error').style.display = 'none';
+  pendingRemoveNodeId = null;
+}
+
+function confirmRemove() {
+  const node = nodes.find(n => n.id === pendingRemoveNodeId);
+  const typed = document.getElementById('confirm-input').value.trim();
+  if (!node) return;
+
+  if (typed !== node.plant) {
+    document.getElementById('confirm-error').style.display = 'block';
+    return;
+  }
+
+  node.plant = null;
+  renderNodes();
+  closeConfirm();
 }
 
 document.getElementById('modal-overlay').addEventListener('click', function(e) {
@@ -616,36 +687,37 @@ connect();
 // ----------------------------------------------------------------------------
 // Globals — kept minimal; everything lives in AppContext.
 // ----------------------------------------------------------------------------
-static AsyncWebServer  webServer(80);
-static AsyncWebSocket  webSocket("/ws");
-static TaskScheduler   scheduler;
-static EventQueue      eventDispatcher;
+static AsyncWebServer webServer(80);
+static AsyncWebSocket webSocket("/ws");
+static TaskScheduler scheduler;
+static EventQueue eventDispatcher;
 
 // Global context accessible from Tasks.cpp
 AppContext gCtx = {
-  .server            = &webServer,
-  .ws                = &webSocket,
-  .scheduler         = &scheduler,
-  .eventDispatcher   = &eventDispatcher,
-  .config            = {},
-  .lastStatus        = {},
-  .configReady       = false,
-  .picoConnected     = false,
-  .lastStatusMs      = 0,
-  .staleThresholdMs  = 30000,
-  .apSSID            = "LeafLink-AP",
-  .apPassword        = "leaflink123",
+    .server = &webServer,
+    .ws = &webSocket,
+    .scheduler = &scheduler,
+    .eventDispatcher = &eventDispatcher,
+    .config = {},
+    .lastStatus = {},
+    .configReady = false,
+    .picoConnected = false,
+    .lastStatusMs = 0,
+    .staleThresholdMs = 30000,
+    .apSSID = "LeafLink-AP",
+    .apPassword = "leaflink123",
 };
 
 // ----------------------------------------------------------------------------
 // Periodic ticker — runs check_stale_data every N ms without blocking loop()
 // ----------------------------------------------------------------------------
-static unsigned long lastStaleCheck  = 0;
-static unsigned long lastApCheck     = 0;
-constexpr unsigned long STALE_CHECK_INTERVAL = 5000;  // every 5 s
-constexpr unsigned long AP_CHECK_INTERVAL    = 3000;  // every 3 s
+static unsigned long lastStaleCheck = 0;
+static unsigned long lastApCheck = 0;
+constexpr unsigned long STALE_CHECK_INTERVAL = 5000; // every 5 s
+constexpr unsigned long AP_CHECK_INTERVAL = 3000;    // every 3 s
 
-void setup() {
+void setup()
+{
   Serial.begin(115200);
   delay(500);
   Serial.println("\n=== LeafLink ESP32-S3 Master ===");
@@ -654,25 +726,30 @@ void setup() {
   scheduler.schedule(Tasks::start);
 }
 
-void loop() {
-  // Run the scheduled tasks, if any. Tasks can schedule other tasks, 
+void loop()
+{
+  // Run the scheduled tasks, if any. Tasks can schedule other tasks,
   // so this may run multiple per loop.
-  if (!scheduler.empty()) {
+  if (!scheduler.empty())
+  {
     TaskScheduler::TaskFunc task = scheduler.pop();
-    if (task) task(gCtx);
+    if (task)
+      task(gCtx);
   }
 
   Tasks::process_events(gCtx);
 
   // Periodic: check for stale Pico data
   unsigned long now = millis();
-  if (now - lastStaleCheck >= STALE_CHECK_INTERVAL) {
+  if (now - lastStaleCheck >= STALE_CHECK_INTERVAL)
+  {
     lastStaleCheck = now;
     Tasks::check_stale_data(gCtx);
   }
 
   // Periodic: log AP client count
-  if (now - lastApCheck >= AP_CHECK_INTERVAL) {
+  if (now - lastApCheck >= AP_CHECK_INTERVAL)
+  {
     lastApCheck = now;
     scheduler.schedule(Tasks::await_pico_connection);
   }
