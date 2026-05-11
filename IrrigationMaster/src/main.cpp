@@ -128,6 +128,47 @@ extern const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(
   .stat-value.bad{color:var(--red)}
   .footer{text-align:center;color:var(--muted);font-size:.75rem;margin-top:auto;
           padding:1rem;border-top:1px solid var(--border);width:100%}
+
+  
+  /* ── Plant Library Section ── */
+  .plant-section{width:100%;max-width:1000px;margin-bottom:1.5rem}
+  .plant-section-header{display:flex;align-items:center;gap:10px;margin-bottom:1rem}
+  .plant-section-title{font-size:.7rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted);font-weight:600}
+  .plant-section-line{flex:1;height:1px;background:var(--border)}
+  .plant-nodes{display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-start}
+  .plant-node{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.2rem 1.4rem;min-width:180px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:8px;transition:transform .2s,box-shadow .2s}
+  .plant-node:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,0.6)}
+  .plant-node-label{font-size:.68rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:600}
+  .plant-node-name{font-size:1.1rem;font-weight:700;color:var(--green);min-height:1.4rem}
+  .plant-node-name.empty{color:var(--muted);font-style:italic;font-weight:400;font-size:.9rem}
+  .plant-node-actions{display:flex;gap:6px;margin-top:4px}
+  .node-btn{background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:.72rem;padding:.3rem .7rem;cursor:pointer;transition:all .2s}
+  .node-btn:hover{border-color:var(--green);color:var(--green)}
+  .node-btn.remove:hover{border-color:var(--red);color:var(--red)}
+  .add-node-btn{background:transparent;border:2px dashed var(--border);border-radius:var(--r);padding:1.2rem 1.8rem;min-width:140px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:all .2s;color:var(--muted);font-size:.82rem}
+  .add-node-btn:hover{border-color:var(--green);color:var(--green);background:rgba(74,222,128,0.04)}
+  .add-node-btn .plus{font-size:1.6rem;line-height:1;font-weight:300}
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);z-index:100;align-items:center;justify-content:center;padding:1rem}
+  .modal-overlay.open{display:flex;animation:fadein .2s ease}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:1.8rem;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.6);display:flex;flex-direction:column;gap:1.2rem}
+  .modal-header{display:flex;align-items:center;justify-content:space-between}
+  .modal-title{font-size:1.1rem;font-weight:700;color:var(--green);display:flex;align-items:center;gap:8px}
+  .modal-close{background:none;border:none;color:var(--muted);font-size:1.4rem;cursor:pointer;line-height:1;padding:4px;border-radius:4px;transition:color .2s}
+  .modal-close:hover{color:var(--text)}
+  .modal-divider{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.75rem;text-transform:uppercase;letter-spacing:1px}
+  .modal-divider::before,.modal-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+  .modal label{display:block;font-size:.75rem;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+  .modal select,.modal input{width:100%;padding:.7rem .9rem;border-radius:8px;border:1px solid var(--border);background:#0a0f0d;color:var(--text);font-size:.9rem;outline:none;transition:border-color .2s}
+  .modal select:focus,.modal input:focus{border-color:var(--green)}
+  .modal-node-label{font-size:.78rem;color:var(--muted);background:rgba(74,222,128,0.06);border:1px solid var(--border);border-radius:8px;padding:.6rem .9rem;display:flex;align-items:center;gap:8px}
+  .modal-node-label strong{color:var(--green)}
+  .modal-footer{display:flex;gap:.7rem;justify-content:flex-end}
+  .btn{border:none;border-radius:8px;padding:.6rem 1.2rem;cursor:pointer;font-size:.88rem;font-weight:600;transition:all .2s}
+  .btn-cancel{background:transparent;border:1px solid var(--border);color:var(--muted)}
+  .btn-cancel:hover{border-color:var(--muted);color:var(--text)}
+  .btn-confirm{background:var(--green);color:#0a0f0d}
+  .btn-confirm:hover{background:#22c55e;transform:translateY(-1px)}
+
   @media(max-width:768px){
     .container{padding:1rem .5rem}
     h1{font-size:1.4rem}
@@ -182,44 +223,7 @@ extern const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(
       <div class="val" id="pump-val">⏸ Idle</div>
       <div class="sub">Auto-triggered by Pico</div>
     </div>
-    <div class="card">
-  <div class="lbl">🪴 Plant Library</div>
 
-  <div style="margin-bottom:10px;">
-    <label for="plant-library" style="display:block; margin-bottom:6px; color:var(--muted); font-size:.8rem;">
-      Choose from plant library
-    </label>
-    <select id="plant-library" style="width:100%; padding:.6rem; border-radius:8px; border:1px solid var(--border); background:#0f1411; color:var(--text);">
-      <option>Recao</option>
-      <option>Oregano Brujo</option>
-      <option>Oregano Regular</option>
-      <option>Cilantro</option>
-      <option>Romero</option>
-      //JOSE KEEP ADDING HERE!
-    </select>
-  </div>
-
-  <div style="margin-bottom:10px;">
-    <label for="custom-plant" style="display:block; margin-bottom:6px; color:var(--muted); font-size:.8rem;">
-      Add my own plant
-    </label>
-    <input
-      id="custom-plant"
-      type="text"
-      placeholder="Enter plant name"
-      style="width:100%; padding:.6rem; border-radius:8px; border:1px solid var(--border); background:#0f1411; color:var(--text);"
-    />
-  </div>
-
-  <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-top:10px;">
-    <button class="btn success" type="button">Select Plant</button>
-    <button class="btn" type="button">Add Plant</button>
-  </div>
-
-  <div class="sub" style="margin-top:10px;">
-    
-  </div>
-</div>
     <div class="card">
       <div class="lbl">📊 Last Update</div>
       <div class="val" id="update-val">—</div>
@@ -231,6 +235,14 @@ extern const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(
     <div class="alerts" id="alerts"></div>
   </div>
 
+  <div class="plant-section">
+    <div class="plant-section-header">
+      <span class="plant-section-title">🪴 Plant Nodes</span>
+      <div class="plant-section-line"></div>
+    </div>
+    <div class="plant-nodes" id="plant-nodes"></div>
+  </div>
+
   <div class="log-panel" id="log"></div>
 
   <div class="footer">
@@ -239,7 +251,129 @@ extern const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">🌱 Add Plant</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-node-label">
+      Assigning to: <strong id="modal-node-name">Node 1</strong>
+    </div>
+    <div>
+      <label>Pick from library</label>
+      <select id="modal-library">
+        <option value="">— Choose a plant —</option>
+        <option>Recao</option>
+        <option>Oregano Brujo</option>
+        <option>Oregano Regular</option>
+        <option>Cilantro</option>
+        <option>Romero</option>
+        <option>Albahaca</option>
+        <option>Ruda</option>
+        <option>Yerba Buena</option>
+        <option>Hoja de Menta</option>
+        <option>Gandules</option>
+        <option>Sávila</option>
+        <option>Laurel</option>
+      </select>
+    </div>
+    <div class="modal-divider">or</div>
+    <div>
+      <label>Add my own plant</label>
+      <input id="modal-custom" type="text" placeholder="e.g. Tomate, Ají Caballero…"/>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-confirm" onclick="confirmPlant()">Add Plant</button>
+    </div>
+  </div>
+</div>
+
+
 <script>
+let nodes = [];
+let activeNodeId = null;
+
+function renderNodes() {
+  const container = document.getElementById('plant-nodes');
+  container.innerHTML = '';
+  nodes.forEach(node => {
+    const el = document.createElement('div');
+    el.className = 'plant-node';
+    el.innerHTML = `
+      <div class="plant-node-label">Plant Node ${node.id}</div>
+      <div class="plant-node-name ${node.plant ? '' : 'empty'}">
+        ${node.plant || 'No plant assigned'}
+      </div>
+      <div class="plant-node-actions">
+        ${node.plant
+          ? `<button class="node-btn" onclick="openModal(${node.id})">Change</button>
+             <button class="node-btn remove" onclick="removePlant(${node.id})">Remove</button>`
+          : `<button class="node-btn" onclick="openModal(${node.id})">Assign</button>`}
+      </div>`;
+    container.appendChild(el);
+  });
+  const addBtn = document.createElement('button');
+  addBtn.className = 'add-node-btn';
+  addBtn.innerHTML = `<span class="plus">+</span><span>Add Plant</span>`;
+  addBtn.onclick = () => {
+    const newId = nodes.length + 1;
+    nodes.push({ id: newId, plant: null });
+    renderNodes();
+    openModal(newId);
+  };
+  container.appendChild(addBtn);
+}
+
+function openModal(nodeId) {
+  activeNodeId = nodeId;
+  document.getElementById('modal-node-name').textContent = `Node ${nodeId}`;
+  document.getElementById('modal-library').value = '';
+  document.getElementById('modal-custom').value = '';
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+  const node = nodes.find(n => n.id === activeNodeId);
+  if (node && !node.plant) {
+    nodes = nodes.filter(n => n.id !== activeNodeId);
+    renderNodes();
+  }
+  activeNodeId = null;
+}
+
+function confirmPlant() {
+  const libraryVal = document.getElementById('modal-library').value;
+  const customVal  = document.getElementById('modal-custom').value.trim();
+  const chosen     = customVal || libraryVal;
+  if (!chosen) { document.getElementById('modal-library').focus(); return; }
+  const node = nodes.find(n => n.id === activeNodeId);
+  if (node) node.plant = chosen;
+  document.getElementById('modal-overlay').classList.remove('open');
+  renderNodes();
+  activeNodeId = null;
+}
+
+function removePlant(nodeId) {
+  const node = nodes.find(n => n.id === nodeId);
+  if (node) { node.plant = null; renderNodes(); }
+}
+
+document.getElementById('modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+document.getElementById('modal-library').addEventListener('change', () => {
+  if (document.getElementById('modal-library').value)
+    document.getElementById('modal-custom').value = '';
+});
+document.getElementById('modal-custom').addEventListener('input', () => {
+  if (document.getElementById('modal-custom').value)
+    document.getElementById('modal-library').value = '';
+});
+
+renderNodes();
 const $ = id => document.getElementById(id);
 let startTime = Date.now();
 let messageLog = [];
