@@ -84,12 +84,11 @@ extern const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(
   .bar.green{background:linear-gradient(90deg,#22c55e,#4ade80)}
   .bar.yellow{background:linear-gradient(90deg,#eab308,#facc15)}
   .bar.red{background:linear-gradient(90deg,#dc2626,#f87171)}
-  .alert-zone{width:100%;max-width:1000px;margin-bottom:1rem}
+  .alert-zone{position:fixed;top:1rem;right:1rem;width:320px;z-index:99;pointer-events:none;}
   .alerts{display:flex;flex-direction:column;gap:.5rem}
-  .alert-item{background:rgba(28,16,0,0.8);border-left:4px solid var(--yellow);
-              border-radius:6px;padding:.8rem 1rem;font-size:.85rem;
-              animation:fadein .3s ease;display:flex;align-items:center;gap:8px}
-  .alert-item.error{border-left-color:var(--red);background:rgba(30,10,10,0.8)}
+  .alert-item{pointer-events:all;background:rgba(28,16,0,0.8);border-left:4px solid var(--yellow);
+            border-radius:6px;padding:.8rem 1rem;font-size:.85rem;
+            animation:fadein .3s ease;display:flex;align-items:center;gap:8px}  .alert-item.error{border-left-color:var(--red);background:rgba(30,10,10,0.8)}
   .alert-item.success{border-left-color:var(--green);background:rgba(10,30,10,0.8)}
   .alert-icon{font-size:1rem;flex-shrink:0}
   .alert-text{flex:1}
@@ -190,8 +189,14 @@ extern const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(
     <span id="ws-label">WebSocket: <strong>connecting…</strong></span>
     <div class="separator"></div>
     <span id="uptime-label">Uptime: <strong>0s</strong></span>
+    <div class="separator"></div>
+    <span id="log-toggle" onclick="toggleLog()" style="cursor:pointer;user-select:none;" title="Toggle log">⚙️</span>
   </div>
 
+  <div id="log-wrapper" style="display:none;width:100%;max-width:1000px;margin-bottom:1.5rem;">
+    <div class="log-panel" id="log"></div>
+  </div>
+  
   <div class="grid">
     <div class="card">
       <div class="lbl">🌱 Soil Moisture</div>
@@ -230,9 +235,6 @@ extern const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(
     </div>
   </div>
 
-  <div class="alert-zone">
-    <div class="alerts" id="alerts"></div>
-  </div>
 
   <div class="plant-section">
     <div class="plant-section-header">
@@ -242,12 +244,14 @@ extern const char DASHBOARD_HTML[] PROGMEM = R"rawliteral(
     <div class="plant-nodes" id="plant-nodes"></div>
   </div>
 
-  <div class="log-panel" id="log"></div>
-
   <div class="footer">
     <div>ESP32-S3 Master Node | LeafLink v1.0</div>
     <div id="connection-info">192.168.4.1:80</div>
   </div>
+</div>
+
+<div class="alert-zone">
+  <div class="alerts" id="alerts"></div>
 </div>
 
 <div class="modal-overlay" id="modal-overlay">
@@ -352,6 +356,12 @@ const PLANT_PROFILES = {
 
 let nodes = [];
 let activeNodeId = null;
+
+function toggleLog() {
+  const wrapper = document.getElementById('log-wrapper');
+  const isHidden = wrapper.style.display === 'none';
+  wrapper.style.display = isHidden ? 'block' : 'none';
+}
 
 function renderNodes() {
   const container = document.getElementById('plant-nodes');
