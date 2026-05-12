@@ -5,10 +5,10 @@
 #include "pico/platform.h"
 
 enum class MoistureRange {
-  VeryWet,
-  Wet,
+  VeryDry,
   Dry,
-  VeryDry
+  Wet,
+  VeryWet
 };
 
 MoistureRange get_moisture_range(uint16_t raw) const;
@@ -143,4 +143,17 @@ SoilMoistureSensor::MoistureRange SoilMoistureSensor::get_moisture_range(uint16_
   } else {
     return MoistureRange::VeryDry;
   }
+}
+
+void SoilMoistureSensor::set_desired_range(MoistureRange desired) {
+  m_desired_range = desired;
+}
+
+MoistureRange SoilMoistureSensor::get_desired_range() const {
+  return m_desired_range;
+}
+
+bool SoilMoistureSensor::is_below_desired_range() const {
+  const MoistureRange measured = get_moisture_range(m_lastRaw);
+  return measured < m_desired_range;
 }

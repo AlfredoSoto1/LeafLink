@@ -79,17 +79,24 @@ void Tasks::read_sensors(AppContext &ctx) {
   
   // Moisture Level (Determine which 1 out of 4 options is the moisture status)
   auto range = ctx.moisture.get_moisture_range(moisture.raw);
+  auto measured = ctx.moisture.get_moisture_range(moisture.raw);
   
   // Control Pump Decision-Making Based on Moisture Status
   switch (range) {
     case MoistureRange::VeryDry:
-      ctx.scheduler->schedule(Tasks::control_pump);
+      if(ctx.moisture.is_below_desired_range()) {
+        ctx.scheduler->schedule(Tasks::control_pump);
+      }
       break;
     case MoistureRange::Dry:
-      ctx.scheduler->schedule(Tasks::control_pump);
+      if(ctx.moisture.is_below_desired_range()) {
+        ctx.scheduler->schedule(Tasks::control_pump);
+      }
       break;
     case MoistureRange::Wet:
-      ctx.scheduler->schedule(Tasks::control_pump);
+      if(ctx.moisture.is_below_desired_range()) {
+        ctx.scheduler->schedule(Tasks::control_pump);
+      }
       break;
     case MoistureRange::VeryWet:
       ctx.pump.off();
@@ -114,7 +121,7 @@ void Tasks::read_power(AppContext &ctx) {
 
 void Tasks::control_pump(AppContext &ctx) {
   printf("[Pump] Running for configured duration.\n");
-  ctx.pump.run_for();
+  ctx.pump.run_for(30000);
 }
 
 void Tasks::send_plant_status(AppContext &ctx) {

@@ -8,6 +8,13 @@
 // SoilMoistureSensor — capacitive / resistive probe on ADC
 // ---------------------------------------------------------------------------
 
+enum class MoistureRange {
+  VeryDry,
+  Dry,
+  Wet,
+  VeryWet
+};
+
 class SoilMoistureSensor {
 public:
   static constexpr uint ADC_PIN = 26;
@@ -36,6 +43,10 @@ public:
   float    get_percent()  const;
   bool     needs_water()  const;
 
+  void set_desired_range(MoistureRange desired);
+  MoistureRange get_desired_range() const;
+  bool is_below_desired_range() const;
+
 private:
   float raw_to_percent(uint16_t raw) const;
   void ensure_initialized() const;
@@ -52,4 +63,6 @@ private:
   
   bool m_initialized;
   bool m_lastNeedsWater;
+
+  MoistureRange m_desired_range = MoistureRange::Dry;
 };
