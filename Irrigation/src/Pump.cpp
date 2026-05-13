@@ -25,6 +25,9 @@ void Pump::off() {
 }
 
 void Pump::run_for(uint32_t duration_ms) {
+  if (duration_ms == 0) {
+    return; //added this to avoid the pump being activated accidentally
+  }     //with invalid value since the pump is pretty fast it could cause overwatering if left on for too long
   on();
   sleep_ms(duration_ms);
   off();
