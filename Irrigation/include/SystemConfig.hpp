@@ -13,6 +13,7 @@ namespace Defaults {
   static constexpr const char *WIFI_PASSWORD = "leaflink123";
   static constexpr const char *MASTER_HOST   = "192.168.4.1";
   static constexpr uint16_t    MASTER_PORT   = 8080;
+  static constexpr const char *NODE_ID = "0001";
 }
 
 // ---------------------------------------------------------------------------

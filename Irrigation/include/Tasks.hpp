@@ -17,4 +17,6 @@ namespace Tasks {
   
   void notify_error(AppContext &ctx);
   void notify_status(AppContext &ctx);
+
+  void start_pairing(AppContext &ctx);
 }

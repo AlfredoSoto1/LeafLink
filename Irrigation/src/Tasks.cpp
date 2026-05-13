@@ -2,6 +2,36 @@
 #include "TaskScheduler.hpp"
 #include "pico/stdlib.h"
 
+void Tasks::start_pairing(AppContext &ctx) {
+
+  // // Fast path: already paired — skip
+  // if (ctx.config.is_valid()) {
+  //   ctx.scheduler->schedule(Tasks::load_config_from_flash);
+  //   printf("Running task...\n");
+  //   return;
+  // }
+
+  // // Power up ESP8266 and start pairing beacon
+  // ctx.wifi.power_on();
+  // sleep_ms(1000);
+
+  // if (!ctx.wifi.start_pairing_beacon(Defaults::NODE_ID)) {
+  //   ctx.scheduler->schedule(Tasks::load_config_from_flash);
+  //   return;
+  // }
+
+  // // Wait up to 30s for master to send PAIR command
+  // char ssid[64] = {};
+  // char pass[64] = {};
+  // ctx.wifi.await_pair_command(ssid, sizeof(ssid), pass, sizeof(pass), 30000);
+
+  // ctx.wifi.stop_pairing_beacon();
+
+  // // Either way, continue to normal boot
+  // ctx.scheduler->schedule(Tasks::load_config_from_flash);
+  printf("aha");
+}
+
 void Tasks::load_config_from_flash(AppContext &ctx) {
   if (ctx.config.load()) {
     printf("[Config] Loaded from flash.\n");

@@ -230,4 +230,104 @@ bool WifiModule::parse_config(const char *data, SystemConfig &out) {
   return true;
 }
 
+bool WifiModule::start_pairing_beacon(const char *node_id) {
+  flush_rx();
 
+  if (!send_at("AT", "OK", 2000)) {
+    reset();
+    sleep_ms(2000);
+    if (!send_at("AT", "OK", 2000)) return false;
+  }
+
+  send_at("ATE0", "OK", 1000);
+
+  if (!send_at("AT+CWMODE=2", "OK", 2000)) return false;
+
+  char cmd[80];
+  snprintf(cmd, sizeof(cmd),
+           "AT+CWSAP=\"LeafLink-Node-%s\",\"\",6,0", node_id);
+  if (!send_at(cmd, "OK", 3000)) return false;
+
+  if (!send_at("AT+CIPMUX=1", "OK", 1000)) return false;
+
+  snprintf(cmd, sizeof(cmd), "AT+CIPSERVER=1,%u", (unsigned)PAIRING_PORT);
+  if (!send_at(cmd, "OK", 2000)) return false;
+
+  m_initialized = false;
+  m_state = State::PAIRING;
+  printf("[Pairing] Beacon active: SSID=LeafLink-Node-%s  port=%u\n",
+         node_id, (unsigned)PAIRING_PORT);
+  return true;
+}
+
+bool WifiModule::await_pair_command(char *ssid_out,  size_t ssid_len,
+                                    char *pass_out,  size_t pass_len,
+                                    uint32_t timeout_ms) {
+  char   buf[512] = {};
+  size_t pos      = 0;
+
+  const uint32_t deadline = to_ms_since_boot(get_absolute_time()) + timeout_ms;
+
+  while (to_ms_since_boot(get_absolute_time()) < deadline) {
+    if (!uart_is_readable(m_uart)) continue;
+
+    const char c = static_cast<char>(uart_getc(m_uart));
+    if (pos < sizeof(buf) - 1) buf[pos++] = c;
+
+    const char *ipd = strstr(buf, "+IPD,");
+    if (!ipd) continue;
+
+    const char *colon = strchr(ipd, ':');
+    if (!colon) continue;
+
+    const char *payload = colon + 1;
+
+    if (strncmp(payload, "PAIR:", 5) != 0) continue;
+
+    char conn_id[2] = { ipd[5], '\0' };
+
+    const char *p   = payload + 5;
+    const char *sep = strchr(p, ':');
+    if (!sep) continue;
+
+    size_t slen = (size_t)(sep - p);
+    if (slen >= ssid_len) slen = ssid_len - 1;
+    strncpy(ssid_out, p, slen);
+    ssid_out[slen] = '\0';
+
+    const char *pw = sep + 1;
+    size_t plen = strlen(pw);
+    while (plen > 0 && (pw[plen - 1] == '\r' || pw[plen - 1] == '\n')) --plen;
+    if (plen >= pass_len) plen = pass_len - 1;
+    strncpy(pass_out, pw, plen);
+    pass_out[plen] = '\0';
+
+    printf("[Pairing] Received PAIR: ssid=%s\n", ssid_out);
+
+    char cipsend[32];
+    snprintf(cipsend, sizeof(cipsend), "AT+CIPSEND=%s,4", conn_id);
+    if (send_at(cipsend, ">", 2000)) {
+      uart_write_blocking(m_uart, reinterpret_cast<const uint8_t *>("OK\r\n"), 4);
+      send_at("", "SEND OK", 3000);
+    }
+
+    char cipclose[32];
+    snprintf(cipclose, sizeof(cipclose), "AT+CIPCLOSE=%s", conn_id);
+    send_at(cipclose, "OK", 1000);
+
+    return true;
+  }
+
+  printf("[Pairing] Timeout — no PAIR command received.\n");
+  return false;
+}
+
+void WifiModule::stop_pairing_beacon() {
+  send_at("AT+CIPSERVER=0", "OK", 1000);
+  send_at("AT+CIPMUX=0", "OK", 1000);
+  send_at("AT+CWMODE=1", "OK", 2000);
+  flush_rx();
+  m_initialized = false;
+  m_state = State::DISCONNECTED;
+  printf("[Pairing] Beacon stopped; switched to station mode.\n");
+}

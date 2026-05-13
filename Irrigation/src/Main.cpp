@@ -66,46 +66,47 @@ int main() {
   context.temperature.init();
   context.power.init();
   // context.pump.init();
-
   // -------------------------------------------------------------------------
   // 3 — Schedule startup task chain
   // -------------------------------------------------------------------------
   // context.scheduler->schedule(Tasks::load_config_from_flash);
   // context.scheduler->schedule(Tasks::read_sensors);
-  context.scheduler->schedule(Tasks::read_power);
-
+  context.scheduler->schedule(Tasks::start_pairing);
+  //context.scheduler->schedule(Tasks::read_sensors);
   // -------------------------------------------------------------------------
   // 4 — Set up LED and repeating 60-second timer
   // -------------------------------------------------------------------------
   gpio_init(PICO_DEFAULT_LED_PIN);
   gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
 
-  repeating_timer_t timer;
+  //repeating_timer_t timer;
   // add_repeating_timer_ms(-60000, timer_callback, nullptr, &timer);
-  add_repeating_timer_ms(-10000, timer_callback, nullptr, &timer);
+  //add_repeating_timer_ms(-10000, timer_callback, nullptr, &timer);
 
   // -------------------------------------------------------------------------
   // Main loop — sleep until the timer fires, then drain the task queue
   // -------------------------------------------------------------------------
   while (true) {
     // Deep sleep: CPU halts, only wakes on interrupt (timer IRQ, etc.)
-    __wfi();
+    
+    // __wfi();
 
-    // go back to sleep if the timer wasn't the reason we woke up (spurious wake, or other IRQ)
-    if (!g_timer_fired) {
-      continue;
-    }
-    g_timer_fired = false;
+    // // go back to sleep if the timer wasn't the reason we woke up (spurious wake, or other IRQ)
+    // if (!g_timer_fired) {
+    //   continue;
+    // }
+    // g_timer_fired = false;
 
     // Drain the entire task queue before returning to sleep
     while (!context.scheduler->empty()) {
       auto task = context.scheduler->pop();
+      sleep_us(500);
       if (task != nullptr) {
         task(context);
         toggle_led();
       }
     }
-
+ 
     // After processing all tasks, schedule the next sensor read for the next cycle
     // context.scheduler->schedule(Tasks::read_sensors);
     context.scheduler->schedule(Tasks::read_power);
