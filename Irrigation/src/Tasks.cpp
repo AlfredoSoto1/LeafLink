@@ -105,14 +105,14 @@ void Tasks::read_sensors(AppContext &ctx) {
   }
 
   // Update the shared plant status with the latest sensor readings
-  status.sampled_at_ms = to_ms_since_boot(get_absolute_time());
-  status.moisture_percent = moisture.percent;
-  status.moisture_needs_water = moisture.needs_water;
-  status.uv_index = uv.uv_index;
-  status.uv_alert = uv.is_alert;
-  status.water_percent = water.percent;
-  status.water_ounces_remaining = water.ounces_remaining;
-  status.temperature_celsius = temperature.celsius;
+  // status.sampled_at_ms = to_ms_since_boot(get_absolute_time());
+  // status.moisture_percent = moisture.percent;
+  // status.moisture_needs_water = moisture.needs_water;
+  // status.uv_index = uv.uv_index;
+  // status.uv_alert = uv.is_alert;
+  // status.water_percent = water.percent;
+  // status.water_ounces_remaining = water.ounces_remaining;
+  // status.temperature_celsius = temperature.celsius;
 
   printf("[Sensors] Moisture: raw=%u  percent=%.1f%%\n", moisture.raw, moisture.percent);
   printf("[Sensors] UV:       raw=%u  index=%.2f  alert=%s\n", uv.raw, uv.uv_index, uv.is_alert ? "YES" : "NO");
@@ -120,7 +120,10 @@ void Tasks::read_sensors(AppContext &ctx) {
   printf("[Sensors] Temp:     raw=%u  voltage=%.3fV  celsius=%.2fC\n", temperature.raw, temperature.voltage, temperature.celsius);
 
   // After reading sensors, check plant conditions to determine if watering is needed
-  ctx.scheduler->schedule(Tasks::check_plant_conditions);
+  // ctx.scheduler->schedule(Tasks::check_plant_conditions);
+  ctx.scheduler->schedule(Tasks::read_sensors);
+
+  sleep_ms(500); // Wait before next sensor read cycle
 }
 
 /**
@@ -167,37 +170,3 @@ void Tasks::notify_status(AppContext &ctx) {
   // Clear the status after notifying
   ctx.plant_status.clear();
 }
-
-  //   context.wifi.power_on();
-
-  //   if (!context.wifi.connect(Defaults::WIFI_SSID, Defaults::WIFI_PASSWORD)) {
-  //     printf("[Wifi] Connect failed.\n");
-  //     return;
-  //   }
-
-  //   SystemConfig received = {};
-  //   while (!context.wifi.request_config(Defaults::MASTER_HOST, Defaults::MASTER_PORT, received)) {
-  //     printf("[Config] Waiting for config from master...\n");
-  //     sleep_ms(2000);
-  //   }
-
-  //   printf("[Config] Received from master.\n");
-
-  //   // Task B (slow path) — persist the received config to flash.
-  //   context.scheduler.schedule([&, received]() {
-  //     if (!context.config.save(received)) {
-  //       printf("[Config] Flash write failed!\n");
-  //       return;
-  //     }
-
-  //     printf("[Config] Saved to flash.\n");
-
-  //     // Task C — apply config to all sensors.
-  //     context.scheduler.schedule([&]() {
-  //       context.moisture.set_config(context.config.get());
-  //       context.uv.set_config(context.config.get());
-  //       context.pump.set_config(context.config.get());
-  //       printf("[Config] Applied to sensors.\n");
-  //     });
-  //   });
-  // });

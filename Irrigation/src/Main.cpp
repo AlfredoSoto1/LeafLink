@@ -61,7 +61,7 @@ int main() {
   context.moisture.calibrate(3000, 1500);
   context.moisture.init();
   context.uv.init();
-  context.water.calibrate(0, 3500);
+  context.water.calibrate(0, 4095.0f);
   context.water.init();
   context.temperature.init();
   context.power.init();
@@ -71,8 +71,8 @@ int main() {
   // 3 — Schedule startup task chain
   // -------------------------------------------------------------------------
   // context.scheduler->schedule(Tasks::load_config_from_flash);
-  // context.scheduler->schedule(Tasks::read_sensors);
-  context.scheduler->schedule(Tasks::read_power);
+  context.scheduler->schedule(Tasks::read_sensors);
+  // context.scheduler->schedule(Tasks::read_power);
 
   // -------------------------------------------------------------------------
   // 4 — Set up LED and repeating 60-second timer
@@ -89,13 +89,13 @@ int main() {
   // -------------------------------------------------------------------------
   while (true) {
     // Deep sleep: CPU halts, only wakes on interrupt (timer IRQ, etc.)
-    __wfi();
+    // __wfi();
 
-    // go back to sleep if the timer wasn't the reason we woke up (spurious wake, or other IRQ)
-    if (!g_timer_fired) {
-      continue;
-    }
-    g_timer_fired = false;
+    // // go back to sleep if the timer wasn't the reason we woke up (spurious wake, or other IRQ)
+    // if (!g_timer_fired) {
+    //   continue;
+    // }
+    // g_timer_fired = false;
 
     // Drain the entire task queue before returning to sleep
     while (!context.scheduler->empty()) {
