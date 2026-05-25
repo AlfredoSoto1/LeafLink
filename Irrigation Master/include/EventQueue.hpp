@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include "SystemConfig.hpp"
 
 enum class EventType : uint8_t {
