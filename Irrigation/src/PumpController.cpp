@@ -24,10 +24,19 @@ void PumpController::power_off() {
   m_running = false;
 }
 
-void PumpController::run() {
+void PumpController::run_for(uint32_t duration_ms) {
+  if (duration_ms == 0) {
+    return; //added this to avoid the pump being activated accidentally
+  }
+  //with invalid value since the pump is pretty fast it could cause overwatering if left on for too long
+  
   power_on();
-  sleep_ms(m_default_duration_ms);
+  sleep_ms(duration_ms);
   power_off();
+}
+
+void PumpController::run_for() {
+  run_for(m_default_duration_ms);
 }
 
 void PumpController::set_config(const SystemConfig &cfg) {
