@@ -9,8 +9,9 @@ namespace Tasks {
 
   // Boot & configuration
   void boot_os(AppContext &ctx);
-  void request_config_from_master(AppContext &ctx);
   void finish(AppContext &ctx);
+  void restart(AppContext &ctx);
+  void request_config_from_master(AppContext &ctx);
 
   // Per-cycle entry point
   void wakeup_os(AppContext &ctx);

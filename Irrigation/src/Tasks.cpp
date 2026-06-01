@@ -57,6 +57,16 @@ void Tasks::finish(AppContext &ctx) {
   // Nothing to do — placeholder for post-boot cleanup or graceful shutdown.
 }
 
+void Tasks::restart(AppContext &ctx) {
+  printf("[System] Restarting OS and clearing config...\n");
+  ctx.storage.flash = {};
+  ctx.storage.state = StorageController::State::NO_DATA;
+  ctx.storage.save();
+  ctx.scheduler->clear();
+  ctx.report.clear();
+  ctx.scheduler->schedule(Tasks::boot_os);
+}
+
 void Tasks::request_config_from_master(AppContext &ctx) {
   printf("[Config] Entering WiFi pairing mode...\n");
   ctx.wifi.enter_pairing_mode();

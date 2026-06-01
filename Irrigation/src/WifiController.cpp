@@ -7,16 +7,23 @@
 
 #define WIFI_UART uart0
 
+// Fires on the falling edge of the pairing button (GPIO21 pulled high).
+// Safe to call from ISR context — only sets a flag.
+static void pair_button_irq(uint gpio, uint32_t events) {
+  WifiController::pairing_requested = true;
+}
+
 void WifiController::init() {
   // Initialize enable pin
   gpio_init(ENABLE_PIN);
   gpio_set_dir(ENABLE_PIN, GPIO_OUT);
   gpio_put(ENABLE_PIN, 0);
 
-  // Initialize pairing pin
+  // Initialize pairing pin & interrupt
   gpio_init(PAIR_PIN);
   gpio_set_dir(PAIR_PIN, GPIO_IN);
   gpio_pull_up(PAIR_PIN);
+  gpio_set_irq_enabled_with_callback(PAIR_PIN, GPIO_IRQ_EDGE_FALL, true, &pair_button_irq);
 
   // Initialize UART
   uart_init(WIFI_UART, BAUD_RATE);
@@ -70,6 +77,15 @@ void WifiController::enter_pairing_mode() {
   printf("SSID: %s\n", config.ap_ssid);
   printf("PASS: %s\n", config.ap_password);
   printf("PORT: %d\n", config.tcp_port);
+
+  // Block until master connects to the TCP server. The ESP8266 sends
+  // "0,CONNECT" (or just "CONNECT") when a client establishes the TCP link.
+  printf("[Pairing] Waiting for master to connect...\n");
+  std::string conn;
+  while (conn.find("CONNECT") == std::string::npos) {
+    conn += uart_read_for(1000);
+  }
+  printf("[Pairing] Master connected.\n");
 }
 
 void WifiController::power_cycle() {

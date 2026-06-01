@@ -71,6 +71,9 @@ public:
    */
   void send_states_payload(const std::string& states_payload);
 
+public:
+  inline static bool pairing_requested = false;
+
 private:
   static constexpr uint     PAIR_PIN   = 21;
   static constexpr uint     ENABLE_PIN = 22;

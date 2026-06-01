@@ -8,6 +8,7 @@
 // Sets a flag so the main loop knows to wake and drain the queue
 // ---------------------------------------------------------------------------
 static volatile bool g_timer_fired = false;
+static volatile bool g_pair_button_pressed = false;
 
 static bool timer_callback(repeating_timer_t *rt) {
   g_timer_fired = true;
@@ -54,18 +55,18 @@ int main() {
   // Main loop — sleep until the timer fires, then drain the task queue
   // -------------------------------------------------------------------------
   while (true) {
-    // Deep sleep: CPU halts, only wakes on interrupt (timer IRQ, etc.)
+    // // Deep sleep: CPU halts, only wakes on interrupt (timer IRQ, GPIO IRQ, etc.)
     // __wfi();
 
     // // go back to sleep if the timer wasn't the reason we woke up (spurious wake, or other IRQ)
-    // if (!g_timer_fired) {
+    // if (!g_timer_fired && !WifiController::pairing_requested) {
     //   continue;
     // }
     // g_timer_fired = false;
 
-    // Process all tasks in the queue. Tasks can schedule more tasks, 
+    // Process all tasks in the queue. Tasks can schedule more tasks,
     // so keep popping until it's empty.
-    while (!context.scheduler->empty()) {
+    while (!context.scheduler->empty() || !WifiController::pairing_requested) {
       auto task = context.scheduler->pop();
       if (task != nullptr) {
         task(context);
@@ -73,9 +74,14 @@ int main() {
       }
     }
 
-    // After processing all tasks, schedule the next sensor read cycle
-    context.scheduler->schedule(Tasks::wakeup_os);
+    // If the pairing button was pressed, restart the system and clear config.
+    if (WifiController::pairing_requested) {
+      WifiController::pairing_requested = false;
+      Tasks::restart(context);
+    } else {
+      // After processing all tasks, schedule the next sensor read cycle
+      context.scheduler->schedule(Tasks::wakeup_os);
+    }
   }
-
   return 0;
 }
