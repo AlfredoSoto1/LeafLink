@@ -2,6 +2,17 @@
 #include "TaskScheduler.hpp"
 #include "pico/stdlib.h"
 
+void Tasks::boot_os(AppContext &ctx) {
+  // This task is scheduled once at startup to perform initial boot tasks like
+  // loading config from flash and applying it to sensors.
+  ctx.scheduler->schedule(Tasks::load_config_from_flash);
+}
+
+void Tasks::wakeup_os(AppContext &ctx) {
+  // This task is scheduled to run periodically to wake up the OS and process tasks.
+  // It doesn't need to do anything itself, as the main loop will handle task execution.
+}
+
 void Tasks::load_config_from_flash(AppContext &ctx) {
   if (ctx.config.load()) {
     printf("[Config] Loaded from flash.\n");
@@ -97,13 +108,6 @@ void Tasks::read_sensors(AppContext &ctx) {
     return;
   }
 
-  auto temperature = ctx.temperature.read(ctx.adc);
-  if (temperature.error) {
-    ctx.plant_status.write_message(ErrorType::SensorReadFailed, "Temperature sensor read failed.");
-    ctx.scheduler->schedule(Tasks::notify_error);
-    return;
-  }
-
   // Update the shared plant status with the latest sensor readings
   // status.sampled_at_ms = to_ms_since_boot(get_absolute_time());
   // status.moisture_percent = moisture.percent;
@@ -112,12 +116,10 @@ void Tasks::read_sensors(AppContext &ctx) {
   // status.uv_alert = uv.is_alert;
   // status.water_percent = water.percent;
   // status.water_ounces_remaining = water.ounces_remaining;
-  // status.temperature_celsius = temperature.celsius;
 
   printf("[Sensors] Moisture: raw=%u  percent=%.1f%%\n", moisture.raw, moisture.percent);
   printf("[Sensors] UV:       raw=%u  index=%.2f  alert=%s\n", uv.raw, uv.uv_index, uv.is_alert ? "YES" : "NO");
   printf("[Sensors] Water:    raw=%u  percent=%.1f%%  ounces remaining=%.1f\n", water.raw, water.percent, water.ounces_remaining);
-  printf("[Sensors] Temp:     raw=%u  voltage=%.3fV  celsius=%.2fC\n", temperature.raw, temperature.voltage, temperature.celsius);
 
   // After reading sensors, check plant conditions to determine if watering is needed
   // ctx.scheduler->schedule(Tasks::check_plant_conditions);

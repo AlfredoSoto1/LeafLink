@@ -6,6 +6,10 @@
 // Tasks — high-level operations that can be scheduled in the main loop
 // ---------------------------------------------------------------------------
 namespace Tasks {
+
+  void boot_os(AppContext &ctx);
+  void wakeup_os(AppContext &ctx);
+
   void load_config_from_flash(AppContext &ctx);
   void request_config_from_master(AppContext &ctx);
   void apply_config_to_sensors(AppContext &ctx);

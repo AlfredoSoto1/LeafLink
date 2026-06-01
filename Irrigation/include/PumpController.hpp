@@ -2,32 +2,61 @@
 
 #include <cstdint>
 #include "pico/stdlib.h"
-#include "SystemConfig.hpp"
 
-// ---------------------------------------------------------------------------
-// Pump — motor driver controlled via GPIO
-// ---------------------------------------------------------------------------
 
 class PumpController {
 public:
-  static constexpr uint POWER_PIN = 15;
+  struct Config {
+    float target_oz_per_day;
+    float flow_rate_oz_per_sec;
+  };
+
+  struct State {
+    bool running;
+    uint32_t duration_ms;
+    uint32_t started_at_ms;
+    float total_oz_dispensed;
+  };
 
 public:
-  PumpController() = default;
+  Config config = {
+    .target_oz_per_day = 1.0f,
+    .flow_rate_oz_per_sec = 0.0f
+  };
 
+  State state = {
+    .running = false,
+    .duration_ms = 0,
+    .started_at_ms = 0,
+    .total_oz_dispensed = 0.0f
+  };
+
+public:
+  /**
+   * @brief Initializes the pump controller, setting up GPIO and internal state. 
+   *        Must be called before using other methods.
+   * 
+   */
   void init();
+
+  /**
+   * @brief Powers on the pump. If the pump is already running, this is a no-op.
+   * 
+   */
+  void start(float ounces);
   
-  void run();
-  bool is_running() const;
-  void set_config(const SystemConfig &cfg);
-  
-private:
-  void power_on();
-  void power_off();
-  void ensure_initialized() const;
+  /**
+   * @brief Powers off the pump. If the pump is already stopped, this is a no-op.
+   * 
+   */
+  void stop();
+
+  /**
+   * @brief Updates the pump controller state. Should be called periodically.
+   * 
+   */
+  void update();
 
 private:
-  bool m_running             = false;
-  bool m_initialized         = false;
-  uint32_t m_default_duration_ms = 5000;
+  uint power_pin = 2;
 };

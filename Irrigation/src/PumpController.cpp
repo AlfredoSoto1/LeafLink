@@ -4,51 +4,49 @@
 #include "pico/platform.h"
 
 void PumpController::init() {
-  gpio_init(POWER_PIN);
-  gpio_set_dir(POWER_PIN, GPIO_OUT);
-  gpio_put(POWER_PIN, 0);
+  gpio_init(power_pin);
+  gpio_set_dir(power_pin, GPIO_OUT);
+  gpio_put(power_pin, 0);
 
-  m_running     = false;
-  m_initialized = true;
+  state.running = false;
+  state.total_oz_dispensed = 0.0f;
+  state.duration_ms = 0;
+  state.started_at_ms = 0;
 }
 
-void PumpController::power_on() {
-  ensure_initialized();
-  gpio_put(POWER_PIN, 1);
-  m_running = true;
-}
-
-void PumpController::power_off() {
-  ensure_initialized();
-  gpio_put(POWER_PIN, 0);
-  m_running = false;
-}
-
-void PumpController::run_for(uint32_t duration_ms) {
-  if (duration_ms == 0) {
-    return; //added this to avoid the pump being activated accidentally
+void PumpController::start(float ounces) {
+  if (state.running || config.flow_rate_oz_per_sec <= 0.0f || config.target_oz_per_day <= 0.0f) {
+    return;
   }
-  //with invalid value since the pump is pretty fast it could cause overwatering if left on for too long
-  
-  power_on();
-  sleep_ms(duration_ms);
-  power_off();
+
+  // Calculate duration based on flow rate and desired ounces
+  state.duration_ms = static_cast<uint32_t>((ounces / config.flow_rate_oz_per_sec) * 1000.0f);
+  state.started_at_ms = to_ms_since_boot(get_absolute_time());
+  state.running = true;
+  gpio_put(power_pin, 1);
 }
 
-void PumpController::run_for() {
-  run_for(m_default_duration_ms);
+void PumpController::stop() {
+  if (!state.running) {
+    return;
+  }
+
+  gpio_put(power_pin, 0);
+  state.running = false;
+
+  // Update total ounces dispensed
+  uint32_t elapsed_ms = to_ms_since_boot(get_absolute_time()) - state.started_at_ms;
+  float oz_dispensed = (elapsed_ms / 1000.0f) * config.flow_rate_oz_per_sec;
+  state.total_oz_dispensed += oz_dispensed;
 }
 
-void PumpController::set_config(const SystemConfig &cfg) {
-  m_default_duration_ms = cfg.pump_run_duration_ms;
-}
+void PumpController::update() {
+  if (!state.running) {
+    return;
+  }
 
-bool PumpController::is_running() const {
-  return m_running;
-}
-
-void PumpController::ensure_initialized() const {
-  if (!m_initialized) {
-    panic("Pump used before init()");
+  uint32_t elapsed_ms = to_ms_since_boot(get_absolute_time()) - state.started_at_ms;
+  if (elapsed_ms >= state.duration_ms) {
+    stop();
   }
 }

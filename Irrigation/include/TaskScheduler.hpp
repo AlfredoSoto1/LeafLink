@@ -3,23 +3,25 @@
 #include <cstddef>
 #include "AppContext.hpp"
 
+// ----------------------------------------------------------------------
+// TaskScheduler — a simple fixed-size queue for scheduling 
+// tasks to run in the main loop
+// ----------------------------------------------------------------------
 class TaskScheduler {
 public:
-  static constexpr size_t MAX_TASKS = 10;
-
   using TaskFunc = void(*)(AppContext &);
 
 public:
   TaskScheduler() = default;
-  ~TaskScheduler() = default;
-
+  
   TaskFunc pop();
   bool schedule(TaskFunc task);
-
+  
   void clear();
   bool empty() const;
-
+  
 private:
+  static constexpr size_t MAX_TASKS = 10;
   TaskFunc queue[MAX_TASKS];
   uint head = 0;
   uint tail = 0;

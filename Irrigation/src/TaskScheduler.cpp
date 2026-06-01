@@ -8,7 +8,6 @@ bool TaskScheduler::schedule(TaskFunc task) {
   tail = (tail + 1) % MAX_TASKS;
   ++count;
   return true;
-
 }
 
 TaskScheduler::TaskFunc TaskScheduler::pop() {

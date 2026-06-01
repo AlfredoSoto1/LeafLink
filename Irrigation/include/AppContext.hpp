@@ -1,15 +1,13 @@
 #pragma once
 
-#include "SoilMoistureSensor.hpp"
-#include "UVSensor.hpp"
-#include "WaterLevelSensor.hpp"
+#include "WifiController.hpp"
 #include "PumpController.hpp"
-#include "Wifi.hpp"
-#include "PowerSensor.hpp"
-#include "SystemConfig.hpp"
-#include "ADCController.hpp"
-#include "PlantStatus.hpp"
-#include "TemperatureSensor.hpp"
+#include "SensorController.hpp"
+#include "StorageController.hpp"
+#include "UVModule.hpp"
+#include "PowerModule.hpp"
+#include "WaterLevelModule.hpp"
+#include "SoilMoistureModule.hpp"
 
 class TaskScheduler;
 
@@ -17,15 +15,14 @@ class TaskScheduler;
 // AppContext — holds all components and shared state for the application
 // ---------------------------------------------------------------------------
 struct AppContext {
-  SoilMoistureSensor moisture;
-  UVSensor           uv;
-  WaterLevelSensor   water;
-  TemperatureSensor  temperature;
+  WifiController     wifi;
   PumpController     pump;
-  WifiModule         wifi;
-  PowerSensor        power;
-  ConfigManager      config;
-  ADCController      adc; 
+  UVModule           uv;
+  PowerModule        power;
+  WaterLevelModule   water;
+  SoilMoistureModule moisture;
+  
+  SensorController   sensor; 
+  StorageController  storage;
   TaskScheduler*     scheduler;
-  PlantStatus        plant_status = {};
 };
