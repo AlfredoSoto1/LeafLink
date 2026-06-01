@@ -17,24 +17,22 @@
 class WifiController {
 public:
   struct Config {
-    const char* ap_ssid;
-    const char* ap_password;
-    uint16_t tcp_port;
+    char     ap_ssid[32]     = "PICO_PAIR_DEVICE";
+    char     ap_password[64] = "12345678";
+    char     master_host[64] = "192.168.1.100";
+    uint16_t tcp_port        = 5000;
   };
 
-  struct State {
-    // Future state variables can be added here, such as:
-    // - Current IP address
-    // - Connection status
-    // - Error codes
+  enum class State {
+    DISCONNECTED,
+    CONNECTING,
+    CONNECTED,
+    ERROR
   };
 
 public:
-  Config config = {
-    .ap_ssid = "PICO_PAIR_DEVICE",
-    .ap_password = "12345678",
-    .tcp_port = 5000
-  };
+  Config config;
+  State state = State::DISCONNECTED;
 
 public:
   /**
@@ -50,7 +48,29 @@ public:
    * 
    */
   void enter_pairing_mode();
-  
+
+  /**
+   * @brief Waits up to timeout_ms for the master to send the system
+   *        configuration over the active TCP server (call after
+   *        enter_pairing_mode). Extracts the +IPD data portion and returns it.
+   *        Returns an empty string if nothing arrived in time.
+   */
+  std::string receive_config_payload(uint32_t timeout_ms);
+
+  /**
+   * @brief Resets the ESP8266 into station mode and connects to the master's
+   *        WiFi AP and TCP endpoint using config credentials.
+   *
+   * @return true if the TCP connection was established.
+   */
+  bool connect_to_master();
+
+  /**
+   * @brief Sends the system states payload to the master over the open TCP
+   *        connection (call after connect_to_master succeeds).
+   */
+  void send_states_payload(const std::string& states_payload);
+
 private:
   static constexpr uint     PAIR_PIN   = 21;
   static constexpr uint     ENABLE_PIN = 22;
@@ -66,7 +86,4 @@ private:
   std::string uart_read_for(uint32_t timeout_ms);
   std::string send_at(const std::string& command, uint32_t timeout_ms = 1000);
   bool wait_for_ok(const std::string& command, uint32_t timeout_ms = 1000);
-  int extract_connection_id(const std::string& data);
-  void send_tcp(int connection_id, const std::string& message);
-  void handle_wifi_data(const std::string& data);
 };

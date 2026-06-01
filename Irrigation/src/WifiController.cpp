@@ -124,70 +124,60 @@ bool WifiController::wait_for_ok(const std::string& command, uint32_t timeout_ms
   return response.find("OK") != std::string::npos;
 }
 
-int WifiController::extract_connection_id(const std::string& data) {
-  size_t start = data.find("+IPD,");
-  if (start == std::string::npos) {
-    return -1;
-  }
+std::string WifiController::receive_config_payload(uint32_t timeout_ms) {
+  std::string raw = uart_read_for(timeout_ms);
+  wifi_enable(false);
 
-  start += 5;
+  if (raw.empty()) return "";
 
-  size_t comma = data.find(",", start);
-  if (comma == std::string::npos) {
-    return -1;
-  }
+  // ESP8266 frames incoming TCP data as: +IPD,<conn_id>,<len>:<payload>
+  size_t ipd = raw.find("+IPD,");
+  if (ipd == std::string::npos) return "";
 
-  std::string id = data.substr(start, comma - start);
+  size_t colon = raw.find(':', ipd);
+  if (colon == std::string::npos) return "";
 
-  for (char c : id) {
-    if (c < '0' || c > '9') {
-      return -1;
-    }
-  }
-  if (id.empty()) {
-    return -1;
-  }
-
-  return std::stoi(id);
+  return raw.substr(colon + 1);
 }
 
-void WifiController::send_tcp(int connection_id, const std::string& message) {
-  std::string command =
-    "AT+CIPSEND=" +
-    std::to_string(connection_id) +
-    "," +
-    std::to_string(message.length());
+bool WifiController::connect_to_master() {
+  power_cycle();
+  send_at("AT", 1000);
+  send_at("ATE0", 1000);
+  send_at("AT+RST", 3000);
+  send_at("ATE0", 1000);
 
-  std::string response = send_at(command, 1000);
+  // Station mode
+  if (!wait_for_ok("AT+CWMODE_DEF=1", 2000)) return false;
 
-  if (response.find(">") != std::string::npos || response.find("OK") != std::string::npos) {
-    uart_send_raw(message);
+  // Connect to master's AP using stored credentials
+  std::string join_cmd =
+    "AT+CWJAP=\"" + std::string(config.ap_ssid) + "\",\"" + std::string(config.ap_password) + "\"";
+  std::string resp = send_at(join_cmd, 15000);
+  if (resp.find("WIFI CONNECTED") == std::string::npos &&
+      resp.find("OK") == std::string::npos) {
+    return false;
+  }
+
+  // Open TCP connection to master
+  std::string tcp_cmd =
+    "AT+CIPSTART=\"TCP\",\"" + std::string(config.master_host) + "\"," +
+    std::to_string(config.tcp_port);
+  resp = send_at(tcp_cmd, 5000);
+  return resp.find("CONNECT") != std::string::npos ||
+         resp.find("OK") != std::string::npos;
+}
+
+void WifiController::send_states_payload(const std::string& states_payload) {
+  std::string cmd = "AT+CIPSEND=" + std::to_string(states_payload.length());
+  std::string resp = send_at(cmd, 1000);
+  if (resp.find(">") != std::string::npos) {
+    uart_send_raw(states_payload);
     sleep_ms(300);
-
-    std::string sendResponse = uart_read_for(1000);
-    printf("%s\n", sendResponse.c_str());
+    uart_read_for(1000);
   } else {
-    printf("ESP8266 not ready to send data\n");
+    printf("[WiFi] send_states_payload: module not ready to send.\n");
   }
-}
-
-void WifiController::handle_wifi_data(const std::string& data) {
-  printf("ESP8266 DATA:\n%s\n", data.c_str());
-
-  if (data.find("CONNECT") != std::string::npos) {
-    printf("MASTER CONNECTED\n");
-  }
-
-  if (data.find("CLOSED") != std::string::npos) {
-    printf("MASTER DISCONNECTED\n");
-  }
-
-  if (data.find("+IPD,") != std::string::npos) {
-    int connection_id = extract_connection_id(data);
-
-    if (connection_id >= 0) {
-      printf("Received data from master on connection %d\n", connection_id);
-      send_tcp(connection_id, "ACK_FROM_PICO\n");
-    }
-  }
+  send_at("AT+CIPCLOSE", 1000);
+  wifi_enable(false);
 }

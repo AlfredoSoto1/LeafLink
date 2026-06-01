@@ -1,174 +1,359 @@
 #include "Tasks.hpp"
 #include "TaskScheduler.hpp"
 #include "pico/stdlib.h"
+#include <cstdio>
+#include <cstring>
 
+// Maximum watering cycles per wakeup to prevent infinite loops if the
+// soil moisture sensor never reads as satisfied.
+static constexpr int MAX_PUMP_CYCLES = 5;
+
+// ---------------------------------------------------------------------------
+// boot_os — initialize all hardware, load config, choose startup path
+// ---------------------------------------------------------------------------
 void Tasks::boot_os(AppContext &ctx) {
-  // This task is scheduled once at startup to perform initial boot tasks like
-  // loading config from flash and applying it to sensors.
-  ctx.scheduler->schedule(Tasks::load_config_from_flash);
-}
+  // Initialize all controllers
+  ctx.storage.init();
+  ctx.sensor.init();
+  ctx.wifi.init();
+  ctx.pump.init();
+  printf("[Boot] All controllers initialized.\n");
+  
+  // Initialize all modules
+  ctx.uv.init();
+  ctx.power.init();
+  ctx.water.init();
+  ctx.moisture.init();
+  printf("[Boot] All modules initialized.\n");
 
-void Tasks::wakeup_os(AppContext &ctx) {
-  // This task is scheduled to run periodically to wake up the OS and process tasks.
-  // It doesn't need to do anything itself, as the main loop will handle task execution.
-}
+  switch (ctx.storage.state) {
+    case StorageController::State::OK:
+      // Load configs from flash into the respective modules.
+      ctx.wifi.config     = ctx.storage.flash.config.wifi_config;
+      ctx.pump.config     = ctx.storage.flash.config.pump_config;
+      ctx.uv.config       = ctx.storage.flash.config.uv_config;
+      ctx.power.config    = ctx.storage.flash.config.power_config;
+      ctx.water.config    = ctx.storage.flash.config.water_config;
+      ctx.moisture.config = ctx.storage.flash.config.soil_moisture_config;
+      printf("[Boot] Config loaded from flash.\n");
+      ctx.scheduler->schedule(Tasks::wakeup_os);
+      break;
 
-void Tasks::load_config_from_flash(AppContext &ctx) {
-  if (ctx.config.load()) {
-    printf("[Config] Loaded from flash.\n");
-    ctx.scheduler->schedule(Tasks::apply_config_to_sensors);
-  } else {
-    printf("[Config] Not found in flash. Requesting from master...\n");
-    ctx.scheduler->schedule(Tasks::request_config_from_master);
+    case StorageController::State::NO_DATA:
+      printf("[Boot] No config in flash. Requesting from master.\n");
+      ctx.scheduler->schedule(Tasks::request_config_from_master);
+      ctx.scheduler->schedule(Tasks::wakeup_os);
+      break;
+
+    case StorageController::State::ERROR:
+    default:
+      ctx.report.set_error("Flash read error: cannot load configuration.");
+      ctx.scheduler->schedule(Tasks::transmit_report);
+      break;
   }
+}
+
+void Tasks::finish(AppContext &ctx) {
+  // Nothing to do — placeholder for post-boot cleanup or graceful shutdown.
 }
 
 void Tasks::request_config_from_master(AppContext &ctx) {
-  if (!ctx.wifi.init()) {
-    printf("[Wifi] Module init failed.\n");
+  printf("[Config] Entering WiFi pairing mode...\n");
+  ctx.wifi.enter_pairing_mode();
+
+  printf("[Config] Waiting for config payload from master (60 s)...\n");
+  std::string payload = ctx.wifi.receive_config_payload(60000);
+
+  if (payload.empty()) {
+    printf("[Config] No config received within timeout. Halting configuration.\n");
+    ctx.scheduler->schedule(Tasks::finish);
     return;
   }
 
-  ctx.wifi.power_on();
-
-  if (!ctx.wifi.connect(Defaults::WIFI_SSID, Defaults::WIFI_PASSWORD)) {
-    printf("[Wifi] Connect failed.\n");
+  if (payload.size() != sizeof(StorageController::SystemConfig)) {
+    printf("[Config] Invalid config size (%u bytes, expected %u). Halting.\n",
+           static_cast<unsigned>(payload.size()),
+           static_cast<unsigned>(sizeof(StorageController::SystemConfig)));
+    ctx.scheduler->schedule(Tasks::finish);
     return;
   }
 
-  SystemConfig received = {};
-  while (!ctx.wifi.request_config(Defaults::MASTER_HOST, Defaults::MASTER_PORT, received)) {
-    printf("[Config] Waiting for config from master...\n");
-    sleep_ms(2000);
-  }
+  // Cast the raw bytes directly into the flash config record.
+  memcpy(&ctx.storage.flash.config, payload.data(), sizeof(StorageController::SystemConfig));
+  ctx.storage.flash.magic = StorageController::MAGIC;
 
-  printf("[Config] Received from master.\n");
+  // Apply the received config to all live modules.
+  ctx.wifi.config     = ctx.storage.flash.config.wifi_config;
+  ctx.pump.config     = ctx.storage.flash.config.pump_config;
+  ctx.uv.config       = ctx.storage.flash.config.uv_config;
+  ctx.power.config    = ctx.storage.flash.config.power_config;
+  ctx.water.config    = ctx.storage.flash.config.water_config;
+  ctx.moisture.config = ctx.storage.flash.config.soil_moisture_config;
 
-  if (ctx.config.save(received)) {
-    printf("[Config] Saved to flash.\n");
-  } else {
-    printf("[Config] Flash write failed!\n");
-  }
-
-  ctx.scheduler->schedule(Tasks::apply_config_to_sensors);
+  ctx.storage.save();
+  printf("[Config] Config received, applied, and saved.\n");
 }
 
-void Tasks::apply_config_to_sensors(AppContext &ctx) {
-  const SystemConfig &cfg = ctx.config.get();
-  ctx.moisture.set_config(cfg);
-  ctx.uv.set_config(cfg);
-  ctx.water.set_config(cfg);
-  ctx.pump.set_config(cfg);
-  ctx.power.set_config(cfg);
-  printf("[Config] Applied to all sensors.\n");
+void Tasks::wakeup_os(AppContext &ctx) {
+  ctx.report.clear();
+  ctx.scheduler->schedule(Tasks::read_power);
 }
 
 void Tasks::read_power(AppContext &ctx) {
-  auto power = ctx.power.read(ctx.adc);
-  if (power.error) {
-    ctx.plant_status.write_message(ErrorType::SensorReadFailed, "Error: Power sensor read failed.");
-    ctx.scheduler->schedule(Tasks::notify_error);
+  ctx.sensor.acquire(&ctx.power.sensor);
+  ctx.sensor.start();
+  ctx.sensor.read_raw();
+  ctx.sensor.release();
+  ctx.power.sinthesize();
+
+  if (ctx.power.state.error) {
+    ctx.report.set_error("Power sensor read failed (voltage critically low or disconnected).");
+    ctx.scheduler->schedule(Tasks::transmit_report);
     return;
   }
 
-  // Update the shared plant status with the latest power readings
-  PlantStatus::StatusData& status = ctx.plant_status.write_status();
-  status.power_voltage = power.voltage;
-  status.power_percent = power.percent;
-  
-  printf("[Sensors] Power:    raw=%u  ratio=%.2f  voltage=%.2fV  battery=%.1f%%\n",
-         power.raw, (static_cast<float>(power.raw) / 4095.0f) * 3.3f, power.voltage, power.percent);
+  if (ctx.power.state.warning) {
+    ctx.report.add_warning("Low battery warning.");
+  }
+
+  printf("[Sensors] Power:    %.2f V  %.1f%%\n",
+         ctx.power.state.voltage, ctx.power.state.percentage);
+
+  ctx.scheduler->schedule(Tasks::read_moisture);
 }
 
-/**
- * This task reads all sensors and updates the shared plant status. It also checks
- * for any alert conditions (like low moisture or high UV) and schedules further tasks as needed.
- */
-void Tasks::read_sensors(AppContext &ctx) {
-  PlantStatus::StatusData& status = ctx.plant_status.write_status();
+// ---------------------------------------------------------------------------
+// read_moisture — read soil moisture; halt on sensor error
+// ---------------------------------------------------------------------------
+void Tasks::read_moisture(AppContext &ctx) {
+  ctx.sensor.acquire(&ctx.moisture.sensor);
+  ctx.sensor.start();
+  ctx.sensor.read_raw();
+  ctx.sensor.release();
+  ctx.moisture.sinthesize();
 
-  auto moisture = ctx.moisture.read(ctx.adc);
-  if (moisture.error) {
-    ctx.plant_status.write_message(ErrorType::SensorReadFailed, "Moisture sensor read failed.");
-    ctx.scheduler->schedule(Tasks::notify_error);
+  if (ctx.moisture.state.error) {
+    ctx.report.set_error("Moisture sensor read failed (disconnected or malfunctioning).");
+    ctx.scheduler->schedule(Tasks::transmit_report);
     return;
   }
 
-  auto uv = ctx.uv.read(ctx.adc);
-  if (uv.error) {
-    ctx.plant_status.write_message(ErrorType::SensorReadFailed, "UV sensor read failed.");
-    ctx.scheduler->schedule(Tasks::notify_error);
-    return;
-  }
+  printf("[Sensors] Moisture: raw=%u  %.1f%%  dry=%s\n",
+         ctx.moisture.sensor.last_value,
+         ctx.moisture.state.moisture_percent,
+         ctx.moisture.state.is_dry ? "YES" : "NO");
 
-  auto water = ctx.water.read(ctx.adc);
-  if (water.error) {
-    ctx.plant_status.write_message(ErrorType::SensorReadFailed, "Water level sensor read failed.");
-    ctx.scheduler->schedule(Tasks::notify_error);
-    return;
-  }
-
-  // Update the shared plant status with the latest sensor readings
-  // status.sampled_at_ms = to_ms_since_boot(get_absolute_time());
-  // status.moisture_percent = moisture.percent;
-  // status.moisture_needs_water = moisture.needs_water;
-  // status.uv_index = uv.uv_index;
-  // status.uv_alert = uv.is_alert;
-  // status.water_percent = water.percent;
-  // status.water_ounces_remaining = water.ounces_remaining;
-
-  printf("[Sensors] Moisture: raw=%u  percent=%.1f%%\n", moisture.raw, moisture.percent);
-  printf("[Sensors] UV:       raw=%u  index=%.2f  alert=%s\n", uv.raw, uv.uv_index, uv.is_alert ? "YES" : "NO");
-  printf("[Sensors] Water:    raw=%u  percent=%.1f%%  ounces remaining=%.1f\n", water.raw, water.percent, water.ounces_remaining);
-
-  // After reading sensors, check plant conditions to determine if watering is needed
-  // ctx.scheduler->schedule(Tasks::check_plant_conditions);
-  ctx.scheduler->schedule(Tasks::read_sensors);
-
-  sleep_ms(500); // Wait before next sensor read cycle
+  ctx.scheduler->schedule(Tasks::read_uv);
 }
 
-/**
- * This task checks the current sensor readings and determines 
- * if the plant needs watering. If the soil moisture is below the 
- * configured threshold, it schedules the pump control task.
- */
+// ---------------------------------------------------------------------------
+// read_uv — read UV sensor; warn on alert, halt on sensor error
+// ---------------------------------------------------------------------------
+void Tasks::read_uv(AppContext &ctx) {
+  ctx.sensor.acquire(&ctx.uv.sensor);
+  ctx.sensor.start();
+  ctx.sensor.read_raw();
+  ctx.sensor.release();
+  ctx.uv.sinthesize();
+
+  if (ctx.uv.state.error) {
+    ctx.report.set_error("UV sensor read failed (disconnected or malfunctioning).");
+    ctx.scheduler->schedule(Tasks::transmit_report);
+    return;
+  }
+
+  if (ctx.uv.state.is_alert) {
+    ctx.report.add_warning("High UV index alert.");
+  }
+
+  printf("[Sensors] UV:       raw=%u  index=%.2f  alert=%s\n",
+         ctx.uv.sensor.last_value,
+         ctx.uv.state.uv_index,
+         ctx.uv.state.is_alert ? "YES" : "NO");
+
+  ctx.scheduler->schedule(Tasks::read_water_level);
+}
+
+// ---------------------------------------------------------------------------
+// read_water_level — read tank level; halt on sensor error
+// ---------------------------------------------------------------------------
+void Tasks::read_water_level(AppContext &ctx) {
+  ctx.sensor.acquire(&ctx.water.sensor);
+  ctx.sensor.start();
+  ctx.sensor.read_raw();
+  ctx.sensor.release();
+  ctx.water.sinthesize();
+
+  if (ctx.water.state.error) {
+    ctx.report.set_error("Water level sensor read failed (disconnected or malfunctioning).");
+    ctx.scheduler->schedule(Tasks::transmit_report);
+    return;
+  }
+
+  printf("[Sensors] Water:    raw=%u  %.1f oz remaining\n",
+         ctx.water.sensor.last_value,
+         ctx.water.state.ounces_remaining);
+
+  ctx.scheduler->schedule(Tasks::check_plant_conditions);
+}
+
+// ---------------------------------------------------------------------------
+// check_plant_conditions — decide whether watering is needed and feasible
+// ---------------------------------------------------------------------------
 void Tasks::check_plant_conditions(AppContext &ctx) {
-  PlantStatus::StatusData& status = ctx.plant_status.write_status();
-  
-  // Check if watering is needed based on soil moisture
-  if (status.moisture_needs_water) {
-    printf("[Plant] Soil moisture low (%.1f%%). Scheduling pump control task.\n", status.moisture_percent);
-    ctx.scheduler->schedule(Tasks::control_pump);
+  if (!ctx.moisture.state.is_dry) {
+    printf("[Plant] Moisture OK (%.1f%%). No watering needed.\n",
+           ctx.moisture.state.moisture_percent);
+    ctx.scheduler->schedule(Tasks::save_states);
+    ctx.scheduler->schedule(Tasks::transmit_report);
+    return;
   }
 
-  // If UV index is above alert threshold, schedule a notification task
-  if (status.uv_alert) {
-    printf("[Plant] UV index high (%.2f). Scheduling status update task.\n", status.uv_index);
-    ctx.scheduler->schedule(Tasks::notify_status);
+  printf("[Plant] Soil dry (%.1f%%). Checking water supply...\n",
+         ctx.moisture.state.moisture_percent);
+
+  if (ctx.water.state.ounces_remaining <= 0.0f) {
+    ctx.report.add_warning("Plant needs water but the tank is empty.");
+    ctx.scheduler->schedule(Tasks::save_states);
+    ctx.scheduler->schedule(Tasks::transmit_report);
+    return;
   }
+
+  if (ctx.pump.config.flow_rate_oz_per_sec <= 0.0f) {
+    ctx.report.add_warning("Plant needs water but pump flow rate is not configured.");
+    ctx.scheduler->schedule(Tasks::save_states);
+    ctx.scheduler->schedule(Tasks::transmit_report);
+    return;
+  }
+
+  ctx.scheduler->schedule(Tasks::control_pump);
 }
 
+// ---------------------------------------------------------------------------
+// control_pump — dispense one dose of water, then re-check moisture.
+// Cycles up to MAX_PUMP_CYCLES times before giving up.
+// ---------------------------------------------------------------------------
 void Tasks::control_pump(AppContext &ctx) {
-  printf("[Pump] Running for configured duration.\n");
-  ctx.pump.run();
+  static int pump_cycles = 0;
+
+  if (pump_cycles >= MAX_PUMP_CYCLES) {
+    pump_cycles = 0;
+    ctx.report.add_warning("Max pump cycles reached; moisture target not satisfied.");
+    ctx.scheduler->schedule(Tasks::save_states);
+    ctx.scheduler->schedule(Tasks::transmit_report);
+    return;
+  }
+
+  // Dispense up to one daily target dose, capped by available water.
+  float oz_to_dispense = ctx.pump.config.target_oz_per_day;
+  if (oz_to_dispense > ctx.water.state.ounces_remaining) {
+    oz_to_dispense = ctx.water.state.ounces_remaining;
+  }
+
+  printf("[Pump] Cycle %d/%d: dispensing %.2f oz...\n",
+         pump_cycles + 1, MAX_PUMP_CYCLES, oz_to_dispense);
+
+  ctx.pump.start(oz_to_dispense);
+
+  // Block until the pump finishes its timed run.
+  while (ctx.pump.state.running) {
+    ctx.pump.update();
+    sleep_ms(100);
+  }
+
+  printf("[Pump] Done. Total dispensed: %.2f oz\n",
+         ctx.pump.state.total_oz_dispensed);
+
+  // Re-read moisture to decide whether another cycle is needed.
+  ctx.sensor.acquire(&ctx.moisture.sensor);
+  ctx.sensor.start();
+  ctx.sensor.read_raw();
+  ctx.sensor.release();
+  ctx.moisture.sinthesize();
+
+  if (ctx.moisture.state.error) {
+    pump_cycles = 0;
+    ctx.report.set_error("Moisture sensor failed after pump cycle.");
+    ctx.scheduler->schedule(Tasks::transmit_report);
+    return;
+  }
+
+  // Re-read water level to get an updated remaining volume.
+  ctx.sensor.acquire(&ctx.water.sensor);
+  ctx.sensor.start();
+  ctx.sensor.read_raw();
+  ctx.sensor.release();
+  ctx.water.sinthesize();
+
+  if (ctx.moisture.state.is_dry && ctx.water.state.ounces_remaining > 0.0f) {
+    pump_cycles++;
+    printf("[Pump] Moisture still low (%.1f%%). Scheduling next cycle.\n",
+           ctx.moisture.state.moisture_percent);
+    ctx.scheduler->schedule(Tasks::control_pump);
+  } else {
+    pump_cycles = 0;
+    printf("[Pump] Moisture satisfied (%.1f%%) or tank now empty.\n",
+           ctx.moisture.state.moisture_percent);
+    ctx.scheduler->schedule(Tasks::save_states);
+    ctx.scheduler->schedule(Tasks::transmit_report);
+  }
 }
 
-void Tasks::notify_error(AppContext &ctx) {
-  // Read the latest message from plant status and send it over WiFi or log it
-  const PlantStatus::MessageData &message = ctx.plant_status.message();
-  printf("[Notification] Error: %s\n", message.text);
-
-  // Clear the message after notifying
-  ctx.plant_status.clear(); 
+// ---------------------------------------------------------------------------
+// save_states — persist the current module states to flash
+// ---------------------------------------------------------------------------
+void Tasks::save_states(AppContext &ctx) {
+  ctx.storage.flash.state.soil_moisture_state = ctx.moisture.state;
+  ctx.storage.flash.state.uv_state            = ctx.uv.state;
+  ctx.storage.flash.state.water_state         = ctx.water.state;
+  ctx.storage.flash.state.power_state         = ctx.power.state;
+  ctx.storage.flash.state.pump_state          = ctx.pump.state;
+  ctx.storage.save();
+  printf("[Storage] States saved to flash.\n");
 }
 
-void Tasks::notify_status(AppContext &ctx) {
-  // Read the latest status from plant status and send it over WiFi or log it
-  const PlantStatus::StatusData &status = ctx.plant_status.status();
-  printf("[Notification] Status update: Moisture=%.1f%%, UV Index=%.2f, Water Remaining=%.1f oz, Temp=%.2fC\n",
-         status.moisture_percent, status.uv_index, status.water_ounces_remaining, status.temperature_celsius);
+// ---------------------------------------------------------------------------
+// transmit_report — build a key=value payload and send it to master over WiFi.
+// On a fatal error the device halts after transmission so it does not silently
+// continue with a broken configuration.
+// ---------------------------------------------------------------------------
+void Tasks::transmit_report(AppContext &ctx) {
+  // Text header: status, optional error message, and any warnings.
+  char header[256];
+  int  offset = 0;
 
-  // Clear the status after notifying
-  ctx.plant_status.clear();
+  if (ctx.report.has_fatal_error) {
+    offset += snprintf(header + offset, sizeof(header) - offset,
+                       "STATUS=ERROR\nMSG=%s\n",
+                       ctx.report.fatal_error_msg);
+  } else {
+    offset += snprintf(header + offset, sizeof(header) - offset, "STATUS=OK\n");
+    for (int i = 0; i < ctx.report.warning_count; ++i) {
+      offset += snprintf(header + offset, sizeof(header) - offset,
+                         "WARN=%s\n", ctx.report.warnings[i]);
+    }
+  }
+
+  // Build the final packet: text header followed by the raw SystemStates struct.
+  std::string packet(header, offset);
+  packet.append(reinterpret_cast<const char*>(&ctx.storage.flash.state),
+                sizeof(StorageController::SystemStates));
+
+  printf("[Report] Header:\n%.*s\n", offset, header);
+
+  if (ctx.wifi.connect_to_master()) {
+    ctx.wifi.send_states_payload(packet);
+    printf("[Report] Transmitted to master.\n");
+  } else {
+    printf("[Report] WiFi connection failed. Could not reach master.\n");
+  }
+
+  ctx.scheduler->schedule(Tasks::finish);
+
+  // Fatal errors must not be silently swallowed — halt after transmission
+  // so the issue is visible and the plant is not put into an unknown state.
+  if (ctx.report.has_fatal_error) {
+    panic("[Fatal] %s", ctx.report.fatal_error_msg);
+  }
 }
+
