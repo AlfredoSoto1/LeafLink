@@ -7,7 +7,7 @@
 
 #define WIFI_UART uart0
 
-// Fires on the falling edge of the pairing button (GPIO21 pulled high).
+// Fires on the falling edge of the pairing button (GPIO11 pulled high).
 // Safe to call from ISR context — only sets a flag.
 static void pair_button_irq(uint gpio, uint32_t events) {
   WifiController::pairing_requested = true;
@@ -32,7 +32,7 @@ void WifiController::init() {
 }
 
 void WifiController::enter_pairing_mode() {
-  printf("Starting ESP8266 pairing mode...\n");
+  printf("[WiFi] Entering pairing mode...\n");
 
   power_cycle();
 
@@ -73,10 +73,10 @@ void WifiController::enter_pairing_mode() {
   // Start TCP server
   send_at("AT+CIPSERVER=1," + std::to_string(config.tcp_port), 1000);
 
-  printf("PAIRING MODE READY\n");
-  printf("SSID: %s\n", config.ap_ssid);
-  printf("PASS: %s\n", config.ap_password);
-  printf("PORT: %d\n", config.tcp_port);
+  printf("[WiFi] Pairing mode ready.\n");
+  printf("[WiFi] SSID: %s\n", config.ap_ssid);
+  printf("[WiFi] PASS: %s\n", config.ap_password);
+  printf("[WiFi] PORT: %d\n", config.tcp_port);
 
   // Block until master connects to the TCP server. The ESP8266 sends
   // "0,CONNECT" (or just "CONNECT") when a client establishes the TCP link.
@@ -89,7 +89,7 @@ void WifiController::enter_pairing_mode() {
 }
 
 void WifiController::power_cycle() {
-  printf("Power cycling WiFi module...\n");
+  printf("[WiFi] Power cycling WiFi module...\n");
   
   wifi_enable(false);
   sleep_ms(1000);
@@ -126,11 +126,11 @@ std::string WifiController::uart_read_for(uint32_t timeout_ms) {
 }
 
 std::string WifiController::send_at(const std::string& command, uint32_t timeout_ms) {
-  printf(">> %s\n", command.c_str());
+  printf("[WiFi] >> %s\n", command.c_str());
   uart_send_line(command);
 
   std::string response = uart_read_for(timeout_ms);
-  printf("%s\n", response.c_str());
+  printf("[WiFi] << %s\n", response.c_str());
 
   return response;
 }

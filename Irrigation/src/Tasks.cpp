@@ -26,6 +26,50 @@ void Tasks::boot_os(AppContext &ctx) {
   ctx.moisture.init();
   printf("[Boot] All modules initialized.\n");
 
+  // For demonstration, pre-populate the flash config with default values.
+  // Remove what is below
+  ctx.storage.flash.config.pump_config = {
+    .target_oz_per_day = 1.0f,
+    .flow_rate_oz_per_sec = 0.5f
+  };
+
+  ctx.storage.flash.config.uv_config = {
+    .alert_threshold = 6.0f,
+    .min_uv_index = 0.0f,
+    .max_uv_index = 11.0f
+  };
+
+  ctx.storage.flash.config.power_config = {
+    .warmup_ms = 100,
+    .v_max = 4.2f,
+    .v_min = 0.0f,
+    .divider_ratio = 0.5f
+  };
+
+  ctx.storage.flash.config.water_config = {
+    .warmup_ms = 100,
+    .tank_capacity_oz = 128.0f,
+  };
+
+  ctx.storage.flash.config.soil_moisture_config = {
+    .warmup_ms = 500,
+    .threshold_percent = 30.0f,
+    .dry_cal = 1023,
+    .wet_cal = 0
+  };
+
+  ctx.storage.flash.config.soil_moisture_config = {
+    .warmup_ms = 500,
+    .threshold_percent = 30.0f,
+    .dry_cal = 1023,
+    .wet_cal = 0
+  };
+
+  ctx.storage.flash.magic = StorageController::MAGIC;
+  ctx.storage.state = StorageController::State::OK;
+
+  /// Remove what is above
+
   switch (ctx.storage.state) {
     case StorageController::State::OK:
       // Load configs from flash into the respective modules.
@@ -116,20 +160,24 @@ void Tasks::read_power(AppContext &ctx) {
   ctx.sensor.release();
   ctx.power.sinthesize();
 
-  if (ctx.power.state.error) {
-    ctx.report.set_error("Power sensor read failed (voltage critically low or disconnected).");
-    ctx.scheduler->schedule(Tasks::transmit_report);
-    return;
-  }
-
+  // if (ctx.power.state.error) {
+  //   ctx.report.set_error("Power sensor read failed (voltage critically low or disconnected).");
+  //   ctx.scheduler->schedule(Tasks::transmit_report);
+  //   return;
+  // }
+  
   if (ctx.power.state.warning) {
     ctx.report.add_warning("Low battery warning.");
+    printf("[Sensors] Low battery warning: %.2f V (%.1f%%)\n",
+      ctx.power.state.voltage, ctx.power.state.percentage);
   }
-
+    
   printf("[Sensors] Power:    %.2f V  %.1f%%\n",
-         ctx.power.state.voltage, ctx.power.state.percentage);
-
-  ctx.scheduler->schedule(Tasks::read_moisture);
+    ctx.power.state.voltage, ctx.power.state.percentage);
+    
+  ctx.scheduler->schedule(Tasks::read_water_level);
+  sleep_ms(1000);
+  // ctx.scheduler->schedule(Tasks::read_moisture);
 }
 
 // ---------------------------------------------------------------------------
@@ -194,17 +242,19 @@ void Tasks::read_water_level(AppContext &ctx) {
   ctx.sensor.release();
   ctx.water.sinthesize();
 
-  if (ctx.water.state.error) {
-    ctx.report.set_error("Water level sensor read failed (disconnected or malfunctioning).");
-    ctx.scheduler->schedule(Tasks::transmit_report);
-    return;
-  }
+  // if (ctx.water.state.error) {
+  //   ctx.report.set_error("Water level sensor read failed (disconnected or malfunctioning).");
+  //   ctx.scheduler->schedule(Tasks::transmit_report);
+  //   return;
+  // }
 
   printf("[Sensors] Water:    raw=%u  %.1f oz remaining\n",
          ctx.water.sensor.last_value,
          ctx.water.state.ounces_remaining);
 
-  ctx.scheduler->schedule(Tasks::check_plant_conditions);
+  // ctx.scheduler->schedule(Tasks::check_plant_conditions);
+  ctx.scheduler->schedule(Tasks::read_power);
+  sleep_ms(1000);
 }
 
 // ---------------------------------------------------------------------------

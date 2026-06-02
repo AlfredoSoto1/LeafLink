@@ -58,5 +58,5 @@ public:
   void update();
 
 private:
-  uint power_pin = 2;
+  uint power_pin = 19;
 };

@@ -13,7 +13,7 @@
 class WaterLevelModule {
 public:
   SensorController::Sensor sensor = {
-    .power_pin = 2,
+    .power_pin = 21,
     .warmup_ms = 100
   };
 

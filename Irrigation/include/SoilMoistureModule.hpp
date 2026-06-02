@@ -13,7 +13,7 @@
 class SoilMoistureModule {
 public:
   SensorController::Sensor sensor = {
-    .power_pin = 2,
+    .power_pin = 17,
     .warmup_ms = 500
   };
 

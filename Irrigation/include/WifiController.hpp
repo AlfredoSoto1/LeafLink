@@ -75,8 +75,8 @@ public:
   inline static bool pairing_requested = false;
 
 private:
-  static constexpr uint     PAIR_PIN   = 21;
-  static constexpr uint     ENABLE_PIN = 22;
+  static constexpr uint     PAIR_PIN   = 11;
+  static constexpr uint     ENABLE_PIN = 3;
   static constexpr uint     TX_PIN     = 0;
   static constexpr uint     RX_PIN     = 1;
   static constexpr uint32_t BAUD_RATE  = 115200;

@@ -23,7 +23,7 @@ static void toggle_inboard_led() {
 
 int main() {
   stdio_init_all();
-  sleep_ms(2000);
+  sleep_ms(5000);
 
   // -------------------------------------------------------------------------
   // 1 — Construct the application context with all components
@@ -36,8 +36,7 @@ int main() {
   };
 
   // -------------------------------------------------------------------------
-  // 2 — Schedule the initial boot task. This will load config, then schedule
-  // sensor reads and other tasks as needed.
+  // 2 — Schedule the boot task to initialize everything and kick off the first cycle
   // -------------------------------------------------------------------------
   context.scheduler->schedule(Tasks::boot_os);
 
@@ -66,7 +65,11 @@ int main() {
 
     // Process all tasks in the queue. Tasks can schedule more tasks,
     // so keep popping until it's empty.
-    while (!context.scheduler->empty() || !WifiController::pairing_requested) {
+    while (!context.scheduler->empty()) {
+      // If the pairing button was pressed, break out of task processing to restart the system.
+      if (WifiController::pairing_requested) {
+        break;
+      }
       auto task = context.scheduler->pop();
       if (task != nullptr) {
         task(context);
@@ -80,7 +83,12 @@ int main() {
       Tasks::restart(context);
     } else {
       // After processing all tasks, schedule the next sensor read cycle
-      context.scheduler->schedule(Tasks::wakeup_os);
+      // context.scheduler->schedule(Tasks::wakeup_os);
+    }
+
+    if (context.scheduler->empty()) {
+      printf("[Main] Task queue empty. Waiting for next timer tick or pairing button press...\n");
+      sleep_ms(1000);
     }
   }
   return 0;
