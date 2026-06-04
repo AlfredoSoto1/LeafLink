@@ -6,7 +6,18 @@
 
 // Maximum watering cycles per wakeup to prevent infinite loops if the
 // soil moisture sensor never reads as satisfied.
-static constexpr int MAX_PUMP_CYCLES = 5;
+static constexpr int MAX_PUMP_CYCLES = 3;
+
+// ---------------------------------------------------------------------------
+// Timer callback — fires every 60 seconds on the timer IRQ
+// Sets a flag so the main loop knows to wake and drain the queue
+// ---------------------------------------------------------------------------
+static volatile bool g_timer_fired = false;
+
+static bool timer_callback(repeating_timer_t *rt) {
+  g_timer_fired = true;
+  return true;
+}
 
 // ---------------------------------------------------------------------------
 // boot_os — initialize all hardware, load config, choose startup path
@@ -26,50 +37,6 @@ void Tasks::boot_os(AppContext &ctx) {
   ctx.moisture.init();
   printf("[Boot] All modules initialized.\n");
 
-  // // For demonstration, pre-populate the flash config with default values.
-  // // Remove what is below
-  // ctx.storage.flash.config.pump_config = {
-  //   .target_oz_per_day = 1.0f,
-  //   .flow_rate_oz_per_sec = 0.5f
-  // };
-
-  // ctx.storage.flash.config.uv_config = {
-  //   .alert_threshold = 6.0f,
-  //   .min_uv_index = 0.0f,
-  //   .max_uv_index = 11.0f
-  // };
-
-  // ctx.storage.flash.config.power_config = {
-  //   .warmup_ms = 100,
-  //   .v_max = 4.2f,
-  //   .v_min = 0.0f,
-  //   .divider_ratio = 0.5f
-  // };
-
-  // ctx.storage.flash.config.water_config = {
-  //   .warmup_ms = 100,
-  //   .tank_capacity_oz = 128.0f,
-  // };
-
-  // ctx.storage.flash.config.soil_moisture_config = {
-  //   .warmup_ms = 500,
-  //   .threshold_percent = 30.0f,
-  //   .dry_cal = 1023,
-  //   .wet_cal = 0
-  // };
-
-  // ctx.storage.flash.config.soil_moisture_config = {
-  //   .warmup_ms = 500,
-  //   .threshold_percent = 30.0f,
-  //   .dry_cal = 1023,
-  //   .wet_cal = 0
-  // };
-
-  // ctx.storage.flash.magic = StorageController::MAGIC;
-  // ctx.storage.state = StorageController::State::OK;
-
-  /// Remove what is above
-
   switch (ctx.storage.state) {
     case StorageController::State::OK:
       // Load configs from flash into the respective modules.
@@ -86,6 +53,7 @@ void Tasks::boot_os(AppContext &ctx) {
     case StorageController::State::NO_DATA:
       printf("[Boot] No config in flash. Requesting from master.\n");
       ctx.scheduler->schedule(Tasks::request_config_from_master);
+      ctx.scheduler->schedule(Tasks::configure_timer);
       ctx.scheduler->schedule(Tasks::wakeup_os);
       break;
 
@@ -98,7 +66,67 @@ void Tasks::boot_os(AppContext &ctx) {
 }
 
 void Tasks::finish(AppContext &ctx) {
-  // Nothing to do — placeholder for post-boot cleanup or graceful shutdown.
+  ctx.scheduler->schedule(Tasks::wakeup_os);
+
+  if (ctx.report.has_fatal_error) {
+    ctx.scheduler->clear();
+    panic("[Fatal] %s", ctx.report.fatal_error_msg);
+    return;
+  }
+
+  // On a clean finish with no fatal errors, the system can enter sleep mode if configured.
+  if (!ctx.storage.flash.config.sleep_config.active) {
+    printf("[System] Sleep mode disabled. Staying awake.\n");
+    return;
+  }
+
+  do {
+    printf("[System] Entering sleep mode.\n");
+    __wfi();
+    
+    // Interrupt was triggered by timer
+    if (g_timer_fired) {
+      g_timer_fired = false;
+      return;
+    }
+
+    // Interrupt was triggered by pairing button
+    // Force restart to pairing mode on next loop iteration
+    if (WifiController::pairing_requested) {
+      WifiController::pairing_requested = false;
+      Tasks::restart(ctx);
+      return;
+    }
+  } while (true);
+}
+
+void Tasks::wakeup_os(AppContext &ctx) {
+  ctx.report.clear();
+  ctx.scheduler->schedule(Tasks::read_power);
+}
+
+void Tasks::configure_timer(AppContext &ctx) {
+  auto& sleep_config = ctx.storage.flash.config.sleep_config;
+
+  if (sleep_config.active) {
+    cancel_repeating_timer(&sleep_config.timer);
+    sleep_config.active = false;
+  }
+
+  // Add a repeating timer to wake up the system every sleep_interval_ms milliseconds.
+  sleep_config.active = add_repeating_timer_ms(
+    -static_cast<int64_t>(sleep_config.sleep_interval_ms), 
+    timer_callback, 
+    nullptr, 
+    &sleep_config.timer);
+
+  if (!sleep_config.active) {
+    ctx.report.set_error("Failed to configure sleep timer.");
+    ctx.scheduler->schedule(Tasks::finish);
+    return;
+  }
+
+  printf("[Config] Sleep interrupt initialized with interval %u ms.\n", sleep_config.sleep_interval_ms);
 }
 
 void Tasks::restart(AppContext &ctx) {
@@ -148,11 +176,6 @@ void Tasks::request_config_from_master(AppContext &ctx) {
   printf("[Config] Config received, applied, and saved.\n");
 }
 
-void Tasks::wakeup_os(AppContext &ctx) {
-  ctx.report.clear();
-  ctx.scheduler->schedule(Tasks::read_power);
-}
-
 void Tasks::read_power(AppContext &ctx) {
   ctx.sensor.acquire(&ctx.power.sensor);
   ctx.sensor.start();
@@ -170,13 +193,13 @@ void Tasks::read_power(AppContext &ctx) {
     ctx.report.add_warning("Low battery warning.");
     printf("[Sensors] Low battery warning: %.2f V (%.1f%%)\n",
       ctx.power.state.voltage, ctx.power.state.percentage);
+    ctx.scheduler->schedule(Tasks::transmit_report);
+    return;
   }
     
-  printf("[Sensors] Power:    %.2f V  %.1f%%\n",
+  printf("[Sensors] Power: %.2f V %.1f%%\n",
     ctx.power.state.voltage, ctx.power.state.percentage);
     
-  // ctx.scheduler->schedule(Tasks::read_water_level);
-  // sleep_ms(1000);
   ctx.scheduler->schedule(Tasks::read_moisture);
 }
 
@@ -253,8 +276,6 @@ void Tasks::read_water_level(AppContext &ctx) {
          ctx.water.state.ounces_remaining);
 
   ctx.scheduler->schedule(Tasks::check_plant_conditions);
-  // ctx.scheduler->schedule(Tasks::read_power);
-  // sleep_ms(1000);
 }
 
 // ---------------------------------------------------------------------------
@@ -271,9 +292,11 @@ void Tasks::check_plant_conditions(AppContext &ctx) {
 
   printf("[Plant] Soil dry (%.1f%%). Checking water supply...\n",
          ctx.moisture.state.moisture_percent);
+  
+  float tank_threshold_oz = ctx.water.config.tank_capacity_oz * (ctx.water.config.tank_min_threshold_percent / 100.0f);
 
-  if (ctx.water.state.ounces_remaining <= 0.0f) {
-    ctx.report.add_warning("Plant needs water but the tank is empty.");
+  if (ctx.water.state.ounces_remaining <= tank_threshold_oz) {
+    ctx.report.add_warning("Plant needs water but the tank is below threshold.");
     ctx.scheduler->schedule(Tasks::save_states);
     ctx.scheduler->schedule(Tasks::transmit_report);
     return;
@@ -345,15 +368,18 @@ void Tasks::control_pump(AppContext &ctx) {
   ctx.sensor.release();
   ctx.water.sinthesize();
 
-  if (ctx.moisture.state.is_dry && ctx.water.state.ounces_remaining > 0.0f) {
+  // Calculate the tank threshold in ounces for the warning check.
+  float tank_threshold_oz = ctx.water.config.tank_capacity_oz * (ctx.water.config.tank_min_threshold_percent / 100.0f);
+
+  if (ctx.moisture.state.is_dry && ctx.water.state.ounces_remaining > tank_threshold_oz) {
     pump_cycles++;
     printf("[Pump] Moisture still low (%.1f%%). Scheduling next cycle.\n",
            ctx.moisture.state.moisture_percent);
     ctx.scheduler->schedule(Tasks::control_pump);
   } else {
     pump_cycles = 0;
-    printf("[Pump] Moisture satisfied (%.1f%%) or tank now empty.\n",
-           ctx.moisture.state.moisture_percent);
+    printf("[Pump] Moisture satisfied (%.1f%%) or tank now below threshold (%.2f oz).\n",
+           ctx.moisture.state.moisture_percent, ctx.water.state.ounces_remaining);
     ctx.scheduler->schedule(Tasks::save_states);
     ctx.scheduler->schedule(Tasks::transmit_report);
   }
@@ -409,11 +435,5 @@ void Tasks::transmit_report(AppContext &ctx) {
   }
 
   ctx.scheduler->schedule(Tasks::finish);
-
-  // Fatal errors must not be silently swallowed — halt after transmission
-  // so the issue is visible and the plant is not put into an unknown state.
-  if (ctx.report.has_fatal_error) {
-    panic("[Fatal] %s", ctx.report.fatal_error_msg);
-  }
 }
 

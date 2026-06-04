@@ -20,6 +20,7 @@ public:
   struct Config {
     uint warmup_ms;
     float tank_capacity_oz;
+    float tank_min_threshold_percent; // Below this percentage, the tank is considered empty
   };
 
   struct State {
@@ -31,6 +32,7 @@ public:
   Config config = {
     .warmup_ms = 100,
     .tank_capacity_oz = 128.0f,
+    .tank_min_threshold_percent = 10.0f
   };
 
   State state = {

@@ -18,6 +18,12 @@ public:
   static constexpr uint32_t FLASH_OFFSET = PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE;
 
 public:
+  struct SleepTimeConfig {
+    repeating_timer_t timer;
+    bool active = false;
+    uint32_t sleep_interval_ms = 10000;
+  };
+
   struct SystemConfig {
     WifiController::Config wifi_config;
     PumpController::Config pump_config;
@@ -26,6 +32,8 @@ public:
     PowerModule::Config power_config;
     WaterLevelModule::Config water_config;
     SoilMoistureModule::Config soil_moisture_config;
+
+    SleepTimeConfig sleep_config;
   };
 
   struct SystemStates {

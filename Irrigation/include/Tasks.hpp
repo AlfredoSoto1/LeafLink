@@ -11,6 +11,7 @@ namespace Tasks {
   void boot_os(AppContext &ctx);
   void finish(AppContext &ctx);
   void restart(AppContext &ctx);
+  void configure_timer(AppContext &ctx);
   void request_config_from_master(AppContext &ctx);
 
   // Per-cycle entry point
