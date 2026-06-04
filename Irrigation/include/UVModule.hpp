@@ -19,8 +19,9 @@ public:
 
   struct Config {
     float alert_threshold;
-    float min_uv_index;
-    float max_uv_index;
+    float min_voltage;   // sensor output voltage at UV index 0   (ML8511: ~1.0 V)
+    float max_voltage;   // sensor output voltage at max UV index (ML8511: ~2.8 V)
+    float max_uv_index;  // UV index corresponding to max_voltage (ML8511: ~15.0)
   };
 
   struct State {
@@ -32,8 +33,9 @@ public:
 public:
   Config config = {
     .alert_threshold = 6.0f,
-    .min_uv_index = 0.0f,
-    .max_uv_index = 11.0f
+    .min_voltage     = 1.0f,
+    .max_voltage     = 2.8f,
+    .max_uv_index    = 15.0f
   };
 
   State state = {

@@ -47,6 +47,7 @@ void Tasks::boot_os(AppContext &ctx) {
       ctx.water.config    = ctx.storage.flash.config.water_config;
       ctx.moisture.config = ctx.storage.flash.config.soil_moisture_config;
       printf("[Boot] Config loaded from flash.\n");
+      ctx.scheduler->schedule(Tasks::configure_timer);
       ctx.scheduler->schedule(Tasks::wakeup_os);
       break;
 
@@ -60,7 +61,7 @@ void Tasks::boot_os(AppContext &ctx) {
     case StorageController::State::ERROR:
     default:
       ctx.report.set_error("Flash read error: cannot load configuration.");
-      ctx.scheduler->schedule(Tasks::transmit_report);
+      ctx.scheduler->schedule(Tasks::finish);
       break;
   }
 }

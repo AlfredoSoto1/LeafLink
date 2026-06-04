@@ -12,9 +12,9 @@ void WaterLevelModule::sinthesize() {
   // percentage and ounces remaining.
   state.ounces_remaining = raw_to_percent(sensor.last_value) * config.tank_capacity_oz / 100.0f;
 
-  // If the raw value is 0, it's likely a sensor error 
-  // (disconnected or malfunctioning)
-  state.error = (sensor.last_value == 0);
+  // raw == 0 is a valid empty-tank reading; check_plant_conditions handles
+  // the low-water case through the threshold comparison.
+  state.error = false;
 }
 
 float WaterLevelModule::raw_to_percent(uint16_t raw) const {
