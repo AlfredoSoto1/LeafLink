@@ -216,6 +216,9 @@ void Tasks::boot_os(AppContext &ctx) {
   ctx.moisture.init();
   printf("[Boot] All modules initialized.\n");
 
+  ctx.scheduler->schedule(Tasks::wakeup_os);
+  return;
+
   // 
   ctx.storage.state = StorageController::State::NO_DATA;
 
@@ -282,6 +285,7 @@ void Tasks::finish(AppContext &ctx) {
 }
 
 void Tasks::wakeup_os(AppContext &ctx) {
+  // ctx.scheduler->schedule(Tasks::transmit_report);
   ctx.report.clear();
   ctx.scheduler->schedule(Tasks::read_power);
 }
@@ -377,16 +381,18 @@ void Tasks::read_power(AppContext &ctx) {
   // if (ctx.power.state.error) {
   //   ctx.report.set_error("Power sensor read failed (voltage critically low or disconnected).");
   //   ctx.scheduler->schedule(Tasks::transmit_report);
+  //   ctx.scheduler->schedule(Tasks::finish);
   //   return;
   // }
   
-  if (ctx.power.state.warning) {
-    ctx.report.add_warning("Low battery warning.");
-    printf("[Sensors] Low battery warning: %.2f V (%.1f%%)\n",
-      ctx.power.state.voltage, ctx.power.state.percentage);
-    ctx.scheduler->schedule(Tasks::transmit_report);
-    return;
-  }
+  // if (ctx.power.state.warning) {
+  //   ctx.report.add_warning("Low battery warning.");
+  //   printf("[Sensors] Low battery warning: %.2f V (%.1f%%)\n",
+  //     ctx.power.state.voltage, ctx.power.state.percentage);
+  //   ctx.scheduler->schedule(Tasks::transmit_report);
+  //   ctx.scheduler->schedule(Tasks::finish);
+  //   return;
+  // }
     
   printf("[Sensors] Power: %.2f V %.1f%%\n",
     ctx.power.state.voltage, ctx.power.state.percentage);
@@ -408,6 +414,7 @@ void Tasks::read_moisture(AppContext &ctx) {
   if (ctx.moisture.state.error) {
     ctx.report.set_error("Moisture sensor read failed (disconnected or malfunctioning).");
     ctx.scheduler->schedule(Tasks::transmit_report);
+    ctx.scheduler->schedule(Tasks::finish);
     return;
   }
 
@@ -432,6 +439,7 @@ void Tasks::read_uv(AppContext &ctx) {
   if (ctx.uv.state.error) {
     ctx.report.set_error("UV sensor read failed (disconnected or malfunctioning).");
     ctx.scheduler->schedule(Tasks::transmit_report);
+    ctx.scheduler->schedule(Tasks::finish);
     return;
   }
 
@@ -457,11 +465,12 @@ void Tasks::read_water_level(AppContext &ctx) {
   ctx.sensor.release();
   ctx.water.sinthesize();
 
-  if (ctx.water.state.error) {
-    ctx.report.set_error("Water level sensor read failed (disconnected or malfunctioning).");
-    ctx.scheduler->schedule(Tasks::transmit_report);
-    return;
-  }
+  // if (ctx.water.state.error) {
+  //   ctx.report.set_error("Water level sensor read failed (disconnected or malfunctioning).");
+  //   ctx.scheduler->schedule(Tasks::transmit_report);
+  //   ctx.scheduler->schedule(Tasks::finish);
+  //   return;
+  // }
 
   printf("[Sensors] Water:    raw=%u  %.1f oz remaining\n",
          ctx.water.sensor.last_value,
@@ -480,6 +489,7 @@ void Tasks::check_plant_conditions(AppContext &ctx) {
            ctx.moisture.state.moisture_percent);
     ctx.scheduler->schedule(Tasks::save_states);
     ctx.scheduler->schedule(Tasks::transmit_report);
+    ctx.scheduler->schedule(Tasks::finish);
     return;
   }
 
@@ -492,6 +502,7 @@ void Tasks::check_plant_conditions(AppContext &ctx) {
     ctx.report.add_warning("Plant needs water but the tank is below threshold.");
     ctx.scheduler->schedule(Tasks::save_states);
     ctx.scheduler->schedule(Tasks::transmit_report);
+    ctx.scheduler->schedule(Tasks::finish);
     return;
   }
 
@@ -499,6 +510,7 @@ void Tasks::check_plant_conditions(AppContext &ctx) {
     ctx.report.add_warning("Plant needs water but pump flow rate is not configured.");
     ctx.scheduler->schedule(Tasks::save_states);
     ctx.scheduler->schedule(Tasks::transmit_report);
+    ctx.scheduler->schedule(Tasks::finish);
     return;
   }
 
@@ -517,6 +529,7 @@ void Tasks::control_pump(AppContext &ctx) {
     ctx.report.add_warning("Max pump cycles reached; moisture target not satisfied.");
     ctx.scheduler->schedule(Tasks::save_states);
     ctx.scheduler->schedule(Tasks::transmit_report);
+    ctx.scheduler->schedule(Tasks::finish);
     return;
   }
 
@@ -551,6 +564,7 @@ void Tasks::control_pump(AppContext &ctx) {
     pump_cycles = 0;
     ctx.report.set_error("Moisture sensor failed after pump cycle.");
     ctx.scheduler->schedule(Tasks::transmit_report);
+    ctx.scheduler->schedule(Tasks::finish);
     return;
   }
 
@@ -576,6 +590,8 @@ void Tasks::control_pump(AppContext &ctx) {
     ctx.scheduler->schedule(Tasks::save_states);
     ctx.scheduler->schedule(Tasks::transmit_report);
   }
+
+  ctx.scheduler->schedule(Tasks::finish);
 }
 
 // ---------------------------------------------------------------------------
@@ -617,7 +633,5 @@ void Tasks::transmit_report(AppContext &ctx) {
   printf("[Report] States text ready (%u bytes).\n", static_cast<unsigned>(packet.size()));
   ctx.wifi.enter_state_report_mode();
   ctx.wifi.send_states_payload(packet);
-
-  ctx.scheduler->schedule(Tasks::finish);
 }
 
