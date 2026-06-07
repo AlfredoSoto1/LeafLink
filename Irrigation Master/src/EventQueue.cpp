@@ -1,37 +1,76 @@
 #include "EventQueue.hpp"
 
-// Returns false if the queue is full (event is dropped).
-bool EventQueue::push(const Event &evt) {
-  if (full()) {
-    return false;
+bool EventQueue::push(const Event &event) {
+  bool accepted_without_drop = true;
+
+  portENTER_CRITICAL(&_mux);
+  if (_count == EVENT_QUEUE_CAPACITY) {
+    _head = (_head + 1) % EVENT_QUEUE_CAPACITY;
+    --_count;
+    accepted_without_drop = false;
   }
-  _buf[_tail] = evt;
+
+  _buf[_tail] = event;
   _tail = (_tail + 1) % EVENT_QUEUE_CAPACITY;
   ++_count;
-  return true;
+  portEXIT_CRITICAL(&_mux);
+
+  return accepted_without_drop;
 }
 
-// Pops into `out`. Returns false if empty.
 bool EventQueue::pop(Event &out) {
-  if (empty()) {
-    return false;
+  bool has_event = false;
+
+  portENTER_CRITICAL(&_mux);
+  if (_count > 0) {
+    out = _buf[_head];
+    _head = (_head + 1) % EVENT_QUEUE_CAPACITY;
+    --_count;
+    has_event = true;
   }
-  out   = _buf[_head];
-  _head = (_head + 1) % EVENT_QUEUE_CAPACITY;
-  --_count;
-  return true;
+  portEXIT_CRITICAL(&_mux);
+
+  return has_event;
 }
 
-// Peek without consuming.
 bool EventQueue::peek(Event &out) const {
-  if (empty()) {
-    return false;
+  bool has_event = false;
+
+  portENTER_CRITICAL(&_mux);
+  if (_count > 0) {
+    out = _buf[_head];
+    has_event = true;
   }
-  out = _buf[_head];
-  return true;
+  portEXIT_CRITICAL(&_mux);
+
+  return has_event;
 }
 
-bool   EventQueue::empty() const { return _count == 0; }
-bool   EventQueue::full()  const { return _count == EVENT_QUEUE_CAPACITY; }
-size_t EventQueue::size()  const { return _count; }
-void   EventQueue::clear()       { _head = _tail = _count = 0; }
+bool EventQueue::empty() const {
+  portENTER_CRITICAL(&_mux);
+  bool is_empty = (_count == 0);
+  portEXIT_CRITICAL(&_mux);
+  return is_empty;
+}
+
+bool EventQueue::full() const {
+  portENTER_CRITICAL(&_mux);
+  bool is_full = (_count == EVENT_QUEUE_CAPACITY);
+  portEXIT_CRITICAL(&_mux);
+  return is_full;
+}
+
+size_t EventQueue::size() const {
+  portENTER_CRITICAL(&_mux);
+  size_t count = _count;
+  portEXIT_CRITICAL(&_mux);
+  return count;
+}
+
+void EventQueue::clear() {
+  portENTER_CRITICAL(&_mux);
+  _head = 0;
+  _tail = 0;
+  _count = 0;
+  portEXIT_CRITICAL(&_mux);
+}

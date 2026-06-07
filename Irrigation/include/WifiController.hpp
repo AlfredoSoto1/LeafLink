@@ -50,12 +50,17 @@ public:
   void enter_pairing_mode();
 
   /**
+   * @brief Enters AP/TCP server mode for state reporting.
+   */
+  void enter_state_report_mode();
+
+  /**
    * @brief Waits up to timeout_ms for the master to send the system
    *        configuration over the active TCP server (call after
    *        enter_pairing_mode). Extracts the +IPD data portion and returns it.
    *        Returns an empty string if nothing arrived in time.
    */
-  std::string receive_config_payload(uint32_t timeout_ms);
+  std::string receive_config_payload(uint32_t timeout_ms, size_t expected_bytes = 0);
 
   /**
    * @brief Resets the ESP8266 into station mode and connects to the master's
@@ -66,10 +71,16 @@ public:
   bool connect_to_master();
 
   /**
-   * @brief Sends the system states payload to the master over the open TCP
-   *        connection (call after connect_to_master succeeds).
+   * @brief Waits for the master to connect, announces state transfer, sends
+   *        text states, waits for STATES_OK, then powers WiFi down.
    */
   void send_states_payload(const std::string& states_payload);
+
+  /**
+   * @brief Sends the pairing result over the active TCP server connection and
+   *        closes pairing WiFi. Call after parsing/applying the config.
+   */
+  void send_config_result(bool ok);
 
 public:
   inline static bool pairing_requested = false;
@@ -81,6 +92,9 @@ private:
   static constexpr uint     RX_PIN     = 1;
   static constexpr uint32_t BAUD_RATE  = 115200;
 
+  uint8_t pairing_connection_id = 0;
+  bool pairing_connection_active = false;
+
 private:
   void power_cycle();
   void wifi_enable(bool enabled);
@@ -89,4 +103,7 @@ private:
   std::string uart_read_for(uint32_t timeout_ms);
   std::string send_at(const std::string& command, uint32_t timeout_ms = 1000);
   bool wait_for_ok(const std::string& command, uint32_t timeout_ms = 1000);
+  bool send_tcp_server_payload(uint8_t connection_id,
+                               const std::string& payload,
+                               std::string* captured_uart = nullptr);
 };

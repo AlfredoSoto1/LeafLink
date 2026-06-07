@@ -1,116 +1,89 @@
 #pragma once
 
+#include "IrrigationNode.hpp"
+
+#include <Arduino.h>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include "SystemConfig.hpp"
 
 enum class EventType : uint8_t {
-  None = 0,               // default value for zero-init
-
-  // Pico -> ESP32
-  PicoConnected,          // a Pico client just joined the AP
-  PicoDisconnected,       // a Pico client left
-  PlantStatusReceived,    // fresh PlantStatus arrived over HTTP/WS
-
-  // ESP32 internal events
-  ConfigReady,            // SystemConfig built and ready to send
-  ConfigSentToPico,       // HTTP response with config was dispatched
-  SensorDataStale,        // no status update for > threshold
-  PumpAlert,              // pump ran on Pico side
-  BatteryLow,             // battery below configured threshold
-
-  // Frontend / WebSocket events
-  WsClientConnected,      // browser WebSocket client connected
-  WsClientDisconnected,   // browser WebSocket client disconnected
-  BroadcastStatus,        // trigger a WS push to all browser clients
-  BroadcastAlert,         // push an alert banner to browsers
+  None = 0,
+  SendConfigToPico,
+  ConfigSentToPico,
+  ConfigSendFailed,
+  PicoReportReceived,
+  WsClientConnected,
+  WsClientDisconnected,
+  BroadcastStatus,
+  BroadcastAlert,
 };
 
-// ----------------------------------------------------------------------------
-// Event
-// Tagged union – keep it plain-old-data so it can live in a static array.
-// ----------------------------------------------------------------------------
 struct Event {
   EventType type = EventType::None;
+  IrrigationNodeState state{};
+  uint32_t client_id = 0;
+  uint32_t timestamp_ms = 0;
+  bool is_error = false;
+  char message[96]{};
 
-  union Payload {
-    IrrigationNodeStatus  status;     // PlantStatusReceived
-    IrrigationNodeConfig  config;     // ConfigReady / ConfigSentToPico
-    struct {
-      uint32_t client_id;
-      char     ip[16];
-    } client;               // PicoConnected / WsClientConnected …
-    char         alert[64]; // BroadcastAlert
-    float        value;     // BatteryLow, SensorDataStale
-    uint8_t      raw[sizeof(IrrigationNodeStatus)]; // zero-init helper
-
-    Payload() { }           // leave uninitialized; EventQueue zeroes on push
-  } payload;
-
-  uint32_t timestamp_ms = 0;  // millis() when the event was enqueued
-
-  Event() = default;
-
-  // Convenience constructors
-  static Event make(EventType t, uint32_t ts = 0) {
-    Event e;
-    e.type         = t;
-    e.timestamp_ms = ts;
-    return e;
+  static Event make(EventType type, uint32_t timestamp_ms = 0) {
+    Event event;
+    event.type = type;
+    event.timestamp_ms = timestamp_ms;
+    return event;
   }
 
-  static Event fromStatus(const IrrigationNodeStatus &s, uint32_t ts = 0) {
-    Event e;
-    e.type             = EventType::PlantStatusReceived;
-    e.payload.status   = s;
-    e.timestamp_ms     = ts;
-    return e;
+  static Event fromState(const IrrigationNodeState &state,
+                         const char *message = nullptr,
+                         bool is_error = false,
+                         uint32_t timestamp_ms = 0) {
+    Event event = make(EventType::PicoReportReceived, timestamp_ms);
+    event.state = state;
+    event.is_error = is_error;
+    event.setMessage(message);
+    return event;
   }
 
-  static Event fromConfig(const IrrigationNodeConfig &c, uint32_t ts = 0) {
-    Event e;
-    e.type            = EventType::ConfigReady;
-    e.payload.config  = c;
-    e.timestamp_ms    = ts;
-    return e;
+  static Event fromAlert(const char *message,
+                         bool is_error = false,
+                         uint32_t timestamp_ms = 0) {
+    Event event = make(EventType::BroadcastAlert, timestamp_ms);
+    event.is_error = is_error;
+    event.setMessage(message);
+    return event;
   }
 
-  static Event fromAlert(const char *msg, uint32_t ts = 0) {
-    Event e;
-    e.type         = EventType::BroadcastAlert;
-    e.timestamp_ms = ts;
-    strncpy(e.payload.alert, msg, sizeof(e.payload.alert) - 1);
-    e.payload.alert[sizeof(e.payload.alert) - 1] = '\0';
-    return e;
+  void setMessage(const char *text) {
+    if (text == nullptr) {
+      message[0] = '\0';
+      return;
+    }
+    strncpy(message, text, sizeof(message) - 1);
+    message[sizeof(message) - 1] = '\0';
   }
 };
 
-// -----------------------------------------------------------------------------
-// EventQueue
-// Simple ring buffer queue for Events. Not thread-safe, but that's fine since
-// we'll only access it from the main loop task.
-// -----------------------------------------------------------------------------
-
-#define EVENT_QUEUE_CAPACITY 10
+static constexpr size_t EVENT_QUEUE_CAPACITY = 16;
 
 class EventQueue {
 public:
-  EventQueue()  = default;
+  EventQueue() = default;
   ~EventQueue() = default;
 
-  bool push(const Event &evt);
+  bool push(const Event &event);
   bool pop(Event &out);
   bool peek(Event &out) const;
 
-  bool   empty() const;
-  bool   full()  const;
-  size_t size()  const;
-  void   clear();       
+  bool empty() const;
+  bool full() const;
+  size_t size() const;
+  void clear();
 
 private:
-  Event  _buf[EVENT_QUEUE_CAPACITY] = {};
-  size_t _head  = 0;
-  size_t _tail  = 0;
+  Event _buf[EVENT_QUEUE_CAPACITY]{};
+  size_t _head = 0;
+  size_t _tail = 0;
   size_t _count = 0;
+  mutable portMUX_TYPE _mux = portMUX_INITIALIZER_UNLOCKED;
 };
