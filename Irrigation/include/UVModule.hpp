@@ -13,7 +13,7 @@
 class UVModule {
 public:
   SensorController::Sensor sensor = {
-    .power_pin = 12,
+    .power_pin = 20,
     .warmup_ms = 100
   };
 

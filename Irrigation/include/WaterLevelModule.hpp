@@ -36,7 +36,7 @@ public:
   };
 
   State state = {
-    .ounces_remaining = 0.0f,
+    .ounces_remaining = 10.0f,
     .error = false
   };
 

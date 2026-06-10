@@ -7,7 +7,7 @@
 class PowerModule {
 public:
   SensorController::Sensor sensor = {
-    .power_pin = 20,
+    .power_pin = 15,
     .warmup_ms = 100
   };
 

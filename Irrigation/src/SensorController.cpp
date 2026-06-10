@@ -65,7 +65,7 @@ uint16_t SensorController::read_raw() {
   // Read the raw ADC value for the currently acquired sensor. This assumes
   // that the sensor's power pin is already enabled and warmed up.
   adc_select_input(0);
-  sleep_ms(50);
+  sleep_ms(200);
 
   // Take multiple readings and average them to reduce noise
   uint16_t raw_value = 0;

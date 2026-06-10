@@ -216,8 +216,8 @@ void Tasks::boot_os(AppContext &ctx) {
   ctx.moisture.init();
   printf("[Boot] All modules initialized.\n");
 
-  ctx.scheduler->schedule(Tasks::wakeup_os);
-  return;
+  // ctx.scheduler->schedule(Tasks::wakeup_os);
+  // return;
 
   // 
   ctx.storage.state = StorageController::State::NO_DATA;
@@ -397,8 +397,8 @@ void Tasks::read_power(AppContext &ctx) {
   printf("[Sensors] Power: %.2f V %.1f%%\n",
     ctx.power.state.voltage, ctx.power.state.percentage);
     
-  // ctx.scheduler->schedule(Tasks::read_moisture);
-  ctx.scheduler->schedule(Tasks::read_water_level);
+  ctx.scheduler->schedule(Tasks::read_moisture);
+  // ctx.scheduler->schedule(Tasks::read_water_level);
 }
 
 // ---------------------------------------------------------------------------
@@ -411,12 +411,12 @@ void Tasks::read_moisture(AppContext &ctx) {
   ctx.sensor.release();
   ctx.moisture.sinthesize();
 
-  if (ctx.moisture.state.error) {
-    ctx.report.set_error("Moisture sensor read failed (disconnected or malfunctioning).");
-    ctx.scheduler->schedule(Tasks::transmit_report);
-    ctx.scheduler->schedule(Tasks::finish);
-    return;
-  }
+  // if (ctx.moisture.state.error) {
+  //   ctx.report.set_error("Moisture sensor read failed (disconnected or malfunctioning).");
+  //   ctx.scheduler->schedule(Tasks::transmit_report);
+  //   ctx.scheduler->schedule(Tasks::finish);
+  //   return;
+  // }
 
   printf("[Sensors] Moisture: raw=%u  %.1f%%  dry=%s\n",
          ctx.moisture.sensor.last_value,
@@ -436,16 +436,16 @@ void Tasks::read_uv(AppContext &ctx) {
   ctx.sensor.release();
   ctx.uv.sinthesize();
 
-  if (ctx.uv.state.error) {
-    ctx.report.set_error("UV sensor read failed (disconnected or malfunctioning).");
-    ctx.scheduler->schedule(Tasks::transmit_report);
-    ctx.scheduler->schedule(Tasks::finish);
-    return;
-  }
+  // if (ctx.uv.state.error) {
+  //   ctx.report.set_error("UV sensor read failed (disconnected or malfunctioning).");
+  //   ctx.scheduler->schedule(Tasks::transmit_report);
+  //   ctx.scheduler->schedule(Tasks::finish);
+  //   return;
+  // }
 
-  if (ctx.uv.state.is_alert) {
-    ctx.report.add_warning("High UV index alert.");
-  }
+  // if (ctx.uv.state.is_alert) {
+  //   ctx.report.add_warning("High UV index alert.");
+  // }
 
   printf("[Sensors] UV:       raw=%u  index=%.2f  alert=%s\n",
          ctx.uv.sensor.last_value,
@@ -476,43 +476,43 @@ void Tasks::read_water_level(AppContext &ctx) {
          ctx.water.sensor.last_value,
          ctx.water.state.ounces_remaining);
 
-  // ctx.scheduler->schedule(Tasks::check_plant_conditions);
-  ctx.scheduler->schedule(Tasks::read_power);
+  ctx.scheduler->schedule(Tasks::check_plant_conditions);
+  // ctx.scheduler->schedule(Tasks::read_power);
 }
 
 // ---------------------------------------------------------------------------
 // check_plant_conditions — decide whether watering is needed and feasible
 // ---------------------------------------------------------------------------
 void Tasks::check_plant_conditions(AppContext &ctx) {
-  if (!ctx.moisture.state.is_dry) {
-    printf("[Plant] Moisture OK (%.1f%%). No watering needed.\n",
-           ctx.moisture.state.moisture_percent);
-    ctx.scheduler->schedule(Tasks::save_states);
-    ctx.scheduler->schedule(Tasks::transmit_report);
-    ctx.scheduler->schedule(Tasks::finish);
-    return;
-  }
+  // if (!ctx.moisture.state.is_dry) {
+  //   printf("[Plant] Moisture OK (%.1f%%). No watering needed.\n",
+  //          ctx.moisture.state.moisture_percent);
+  //   ctx.scheduler->schedule(Tasks::save_states);
+  //   ctx.scheduler->schedule(Tasks::transmit_report);
+  //   ctx.scheduler->schedule(Tasks::finish);
+  //   return;
+  // }
 
-  printf("[Plant] Soil dry (%.1f%%). Checking water supply...\n",
-         ctx.moisture.state.moisture_percent);
+  // printf("[Plant] Soil dry (%.1f%%). Checking water supply...\n",
+  //        ctx.moisture.state.moisture_percent);
   
-  float tank_threshold_oz = ctx.water.config.tank_capacity_oz * (ctx.water.config.tank_min_threshold_percent / 100.0f);
+  // float tank_threshold_oz = ctx.water.config.tank_capacity_oz * (ctx.water.config.tank_min_threshold_percent / 100.0f);
 
-  if (ctx.water.state.ounces_remaining <= tank_threshold_oz) {
-    ctx.report.add_warning("Plant needs water but the tank is below threshold.");
-    ctx.scheduler->schedule(Tasks::save_states);
-    ctx.scheduler->schedule(Tasks::transmit_report);
-    ctx.scheduler->schedule(Tasks::finish);
-    return;
-  }
+  // if (ctx.water.state.ounces_remaining <= tank_threshold_oz) {
+  //   ctx.report.add_warning("Plant needs water but the tank is below threshold.");
+  //   ctx.scheduler->schedule(Tasks::save_states);
+  //   ctx.scheduler->schedule(Tasks::transmit_report);
+  //   ctx.scheduler->schedule(Tasks::finish);
+  //   return;
+  // }
 
-  if (ctx.pump.config.flow_rate_oz_per_sec <= 0.0f) {
-    ctx.report.add_warning("Plant needs water but pump flow rate is not configured.");
-    ctx.scheduler->schedule(Tasks::save_states);
-    ctx.scheduler->schedule(Tasks::transmit_report);
-    ctx.scheduler->schedule(Tasks::finish);
-    return;
-  }
+  // if (ctx.pump.config.flow_rate_oz_per_sec <= 0.0f) {
+  //   ctx.report.add_warning("Plant needs water but pump flow rate is not configured.");
+  //   ctx.scheduler->schedule(Tasks::save_states);
+  //   ctx.scheduler->schedule(Tasks::transmit_report);
+  //   ctx.scheduler->schedule(Tasks::finish);
+  //   return;
+  // }
 
   ctx.scheduler->schedule(Tasks::control_pump);
 }

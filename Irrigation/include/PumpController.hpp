@@ -21,7 +21,7 @@ public:
 public:
   Config config = {
     .target_oz_per_day = 1.0f,
-    .flow_rate_oz_per_sec = 0.0f
+    .flow_rate_oz_per_sec = 1.0f
   };
 
   State state = {
@@ -58,5 +58,5 @@ public:
   void update();
 
 private:
-  uint power_pin = 19;
+  uint power_pin = 9;
 };

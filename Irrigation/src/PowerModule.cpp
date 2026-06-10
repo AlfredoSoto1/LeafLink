@@ -13,12 +13,12 @@ void PowerModule::sinthesize() {
   state.voltage = raw_to_voltage(sensor.last_value);
 
   // Calculate percentage based on v_min/v_max and clamp to 0-100 %
-  if (state.voltage <= config.v_min) {
+  if (state.voltage <= 3.0f) {
     state.percentage = 0.0f;
-  } else if (state.voltage >= config.v_max) {
+  } else if (state.voltage >= 5.0f) {
     state.percentage = 100.0f;
   } else {
-    state.percentage = ((state.voltage - config.v_min) / (config.v_max - config.v_min)) * 100.0f;
+    state.percentage = ((state.voltage - 3.0f) / (5.0f - 3.0f)) * 100.0f;
   }
 
   // Set warning if percentage is below 20 %, and error if below 5 %
